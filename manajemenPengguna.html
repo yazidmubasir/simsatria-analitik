@@ -4,12 +4,47 @@
       <h5 class="mb-1 fw-bold">Manajemen Pengguna</h5>
       <div class="text-muted small" id="mpSekolah">Memuat sekolah...</div>
     </div>
-    <button class="btn btn-success btn-sm px-3" type="button" onclick="mpBukaForm()">
-      <i class="bi bi-person-plus me-1"></i> Tambah Guru
-    </button>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-success btn-sm px-3" type="button" onclick="mpBukaSinkronisasi()">
+        <i class="bi bi-people me-1"></i> Sinkronkan Guru
+      </button>
+      <button class="btn btn-success btn-sm px-3" type="button" onclick="mpBukaForm()">
+        <i class="bi bi-person-plus me-1"></i> Tambah Pengguna
+      </button>
+    </div>
   </div>
 
   <div id="mpAlert"></div>
+
+  <div class="card border-0 shadow-sm mb-3" id="mpSyncCard" style="display:none;">
+    <div class="card-header bg-success text-white fw-semibold">
+      <i class="bi bi-people-fill me-1"></i> Sinkronkan Semua Pengguna Sekolah
+    </div>
+    <div class="card-body">
+      <p class="small text-muted mb-2">
+        Masukkan daftar email guru. Satu email per baris. Anda juga dapat memakai format
+        <code>email|Nama Guru|NIP</code>. Sistem akan membuat/update pengguna, school binding,
+        akses database sekolah, dan permission berdasarkan role.
+      </p>
+      <textarea class="form-control font-monospace" id="mpEmailList" rows="7" placeholder="guru1@gmail.com&#10;guru2@gmail.com&#10;guru3@gmail.com|Nama Guru|NIP"></textarea>
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+        <div class="small text-muted">
+          <i class="bi bi-shield-check me-1"></i> Hanya ADMIN_SEKOLAH yang dapat menjalankan sinkronisasi.
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-light border" type="button" onclick="mpTutupSinkronisasi()">Batal</button>
+          <button class="btn btn-success" type="button" id="mpSyncBtn" onclick="mpSinkronkanSemua()">
+            <span class="spinner-border spinner-border-sm d-none" id="mpSyncSpin"></span>
+            <span id="mpSyncText">Sinkronkan Semua</span>
+          </button>
+          <button class="btn btn-outline-primary" type="button" id="mpSyncExistingBtn" onclick="mpSinkronkanExisting()">
+            <span class="spinner-border spinner-border-sm d-none" id="mpSyncExistingSpin"></span>
+            <span>Sinkronkan USERS</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div class="card border-0 shadow-sm mb-3" id="mpFormCard" style="display:none;">
     <div class="card-header bg-success text-white fw-semibold">Tambah / Ubah Pengguna</div>
