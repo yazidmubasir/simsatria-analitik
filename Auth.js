@@ -15,6 +15,8 @@ const AUTH_CONFIG = {
   USER_BINDINGS_PROPERTY: "SIM_SATRIA_USER_BINDINGS_V2",
   ACTIVE_STATUS: "ACTIVE",
   CACHE_SECONDS: 21600,
+  CONTEXT_CACHE_VERSION: "V6",
+  ADMIN_CACHE_VERSION: "V2",
 };
 
 function normalizeEmail_(email) {
@@ -81,7 +83,8 @@ function getAdminByEmail_(email) {
   if (!normalizedEmail) return null;
 
   const cache = CacheService.getScriptCache();
-  const key = "ADMIN_" + normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_");
+  const safe = normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_");
+  const key = "ADMIN_" + AUTH_CONFIG.ADMIN_CACHE_VERSION + "_" + safe;
   const cached = cache.get(key);
   if (cached) {
     try {
@@ -317,7 +320,8 @@ function getBoundSchoolUserContext_(email) {
 function getCurrentUserContext() {
   const email = getGoogleUserEmail_();
   const cache = CacheService.getScriptCache();
-  const cacheKey = "USER_CONTEXT_V5_" + email.replace(/[^a-zA-Z0-9]/g, "_");
+  const safe = email.replace(/[^a-zA-Z0-9]/g, "_");
+  const cacheKey = "USER_CONTEXT_" + AUTH_CONFIG.CONTEXT_CACHE_VERSION + "_" + safe;
   const cached = cache.get(cacheKey);
   if (cached) {
     try {
@@ -327,16 +331,9 @@ function getCurrentUserContext() {
     }
   }
 
-  // PENTING: cek binding user sekolah terlebih dahulu.
-  // Ini mencegah akun guru harus membuka Spreadsheet MASTER.
-  const boundUser = getBoundSchoolUserContext_(email);
-  if (boundUser) {
-    cache.put(cacheKey, JSON.stringify(boundUser), AUTH_CONFIG.CACHE_SECONDS);
-    return boundUser;
-  }
-
-  // Hanya akun yang belum mempunyai binding yang diperiksa ke MASTER.
-  // Ini adalah jalur ADMIN_SEKOLAH.
+  // PENTING: ADMIN_SEKOLAH harus selalu diprioritaskan di atas binding lokal.
+  // Sebelumnya akun yang pernah terdaftar sebagai GURU/WALI_KELAS dapat
+  // tetap terbaca sebagai guru walaupun kemudian dipromosikan menjadi ADMIN_SEKOLAH.
   const admin = getAdminByEmail_(email);
   if (admin) {
     const status = String(admin.STATUS || "").trim().toUpperCase();
@@ -364,6 +361,13 @@ function getCurrentUserContext() {
     const context = buildSchoolContext_(admin, school, email);
     cache.put(cacheKey, JSON.stringify(context), AUTH_CONFIG.CACHE_SECONDS);
     return context;
+  }
+
+  // Jika bukan ADMIN_SEKOLAH, barulah gunakan binding lokal sekolah.
+  const boundUser = getBoundSchoolUserContext_(email);
+  if (boundUser) {
+    cache.put(cacheKey, JSON.stringify(boundUser), AUTH_CONFIG.CACHE_SECONDS);
+    return boundUser;
   }
 
   throw new Error(
@@ -467,9 +471,11 @@ function clearUserContextCache_(email) {
   if (!normalizedEmail) return;
   const safe = normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_");
   const cache = CacheService.getScriptCache();
+  cache.remove("USER_CONTEXT_" + AUTH_CONFIG.CONTEXT_CACHE_VERSION + "_" + safe);
   cache.remove("USER_CONTEXT_V5_" + safe);
   cache.remove("USER_CONTEXT_V4_" + safe);
   cache.remove("LOCAL_USER_" + safe);
+  cache.remove("ADMIN_" + AUTH_CONFIG.ADMIN_CACHE_VERSION + "_" + safe);
   cache.remove("ADMIN_" + safe);
 }
 
