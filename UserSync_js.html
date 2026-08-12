@@ -1,0 +1,106 @@
+<script>
+function userSyncSetBusy_(busy) {
+  var buttons = document.querySelectorAll('#userSyncPanel button');
+  buttons.forEach(function (button) {
+    button.disabled = busy;
+  });
+}
+
+function userSyncShowResult_(html, type) {
+  var el = document.getElementById('userSyncResult');
+  if (!el) return;
+  el.innerHTML = '<div class="alert alert-' + (type || 'info') + ' mb-0">' + html + '</div>';
+}
+
+function syncAllSchoolUsersUI() {
+  var input = document.getElementById('userSyncEmails');
+  var value = input ? input.value.trim() : '';
+  if (!value) {
+    userSyncShowResult_('Silakan masukkan minimal satu email guru.', 'warning');
+    return;
+  }
+
+  userSyncSetBusy_(true);
+  userSyncShowResult_('Sedang menyinkronkan pengguna sekolah...', 'info');
+
+  google.script.run
+    .withSuccessHandler(function (result) {
+      userSyncSetBusy_(false);
+      if (!result || !result.success) {
+        userSyncShowResult_(result && result.message ? result.message : 'Sinkronisasi gagal.', 'danger');
+        return;
+      }
+
+      var failed = (result.users || []).filter(function (u) { return !u.success; });
+      var ok = (result.users || []).filter(function (u) { return u.success; });
+      var detail = ok.map(function (u) {
+        return '<li><strong>' + escapeHtml_(u.email) + '</strong> — ' +
+          escapeHtml_(u.nama || 'Guru') + ' — ' + escapeHtml_(u.role || 'GURU') +
+          ' — <span class="text-success">ACTIVE</span></li>';
+      }).join('');
+      if (failed.length) {
+        detail += failed.map(function (u) {
+          return '<li><strong>' + escapeHtml_(u.email) + '</strong> — <span class="text-danger">' +
+            escapeHtml_(u.error || 'Gagal') + '</span></li>';
+        }).join('');
+      }
+
+      userSyncShowResult_(
+        '<strong>' + escapeHtml_(result.message || 'Sinkronisasi selesai.') + '</strong>' +
+        (detail ? '<ul class="mb-0 mt-2">' + detail + '</ul>' : ''),
+        failed.length ? 'warning' : 'success'
+      );
+
+      if (typeof loadSchoolUsers === 'function') {
+        try { loadSchoolUsers(); } catch (e) {}
+      }
+      if (typeof getSchoolUsersUI === 'function') {
+        try { getSchoolUsersUI(); } catch (e) {}
+      }
+    })
+    .withFailureHandler(function (error) {
+      userSyncSetBusy_(false);
+      userSyncShowResult_(escapeHtml_(error && error.message ? error.message : String(error)), 'danger');
+    })
+    .importTeacherEmails(value);
+}
+
+function syncExistingSchoolUsersUI() {
+  userSyncSetBusy_(true);
+  userSyncShowResult_('Sedang menyinkronkan seluruh pengguna pada sheet USERS...', 'info');
+
+  google.script.run
+    .withSuccessHandler(function (result) {
+      userSyncSetBusy_(false);
+      if (!result || !result.success) {
+        userSyncShowResult_(result && result.message ? result.message : 'Sinkronisasi gagal.', 'danger');
+        return;
+      }
+      userSyncShowResult_(escapeHtml_(result.message || 'Seluruh USERS berhasil disinkronkan.'), result.failed ? 'warning' : 'success');
+      if (typeof loadSchoolUsers === 'function') {
+        try { loadSchoolUsers(); } catch (e) {}
+      }
+    })
+    .withFailureHandler(function (error) {
+      userSyncSetBusy_(false);
+      userSyncShowResult_(escapeHtml_(error && error.message ? error.message : String(error)), 'danger');
+    })
+    .syncAllExistingSchoolUsers();
+}
+
+function clearUserSyncUI() {
+  var input = document.getElementById('userSyncEmails');
+  var result = document.getElementById('userSyncResult');
+  if (input) input.value = '';
+  if (result) result.innerHTML = '';
+}
+
+function escapeHtml_(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+</script>

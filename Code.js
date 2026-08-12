@@ -1,12 +1,3 @@
-/**
- * SIM SATRIA - CORE
- * Multi-school / multi-NPSN
- *
- * URL Web App tunggal: /exec
- *
- * Routing:
- *   Google Account -> ADMIN_SEKOLAH or local USERS -> NPSN -> SCHOOLS -> School Context
- */
 function doGet() {
   return HtmlService.createTemplateFromFile("index")
     .evaluate()
@@ -20,10 +11,7 @@ function include(filename) {
 
 function setupMasterRegistry() {
   const ss = getMasterSpreadsheet_();
-  ensureSheetHeaders_(ss, "SCHOOLS", [
-    "NPSN","NAMA_SEKOLAH","STATUS","SPREADSHEET_ID","DRIVE_FOLDER_ID",
-    "ALAMAT","LOGO_URL","TAGLINE","WARNA_UTAMA","WARNA_SEKUNDER",
-  ]);
+  ensureSheetHeaders_(ss, "SCHOOLS", ["NPSN","NAMA_SEKOLAH","STATUS","SPREADSHEET_ID","DRIVE_FOLDER_ID","ALAMAT","LOGO_URL","TAGLINE","WARNA_UTAMA","WARNA_SEKUNDER"]);
   ensureSheetHeaders_(ss, "ADMIN_SEKOLAH", ["USER_ID","EMAIL","NIP","NAMA","NPSN","ROLE","STATUS"]);
   return { success: true, spreadsheetId: ss.getId(), spreadsheetName: ss.getName(), message: "Registry Master siap. Sheet SCHOOLS dan ADMIN_SEKOLAH tersedia." };
 }
@@ -32,9 +20,18 @@ function ensureSheetHeaders_(ss, name, headers) {
   let sh = ss.getSheetByName(name);
   if (!sh) sh = ss.insertSheet(name);
   const current = sh.getLastColumn() > 0 ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0] : [];
-  if (!current.length || current.every((v) => String(v).trim() === "")) { sh.getRange(1, 1, 1, headers.length).setValues([headers]); sh.setFrozenRows(1); return; }
+  if (!current.length || current.every((v) => String(v).trim() === "")) {
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sh.setFrozenRows(1);
+    return;
+  }
   const normalized = current.map((v) => String(v || "").trim().toUpperCase());
-  headers.forEach((h) => { if (!normalized.includes(h.toUpperCase())) { sh.getRange(1, sh.getLastColumn() + 1).setValue(h); normalized.push(h.toUpperCase()); } });
+  headers.forEach((h) => {
+    if (!normalized.includes(h.toUpperCase())) {
+      sh.getRange(1, sh.getLastColumn() + 1).setValue(h);
+      normalized.push(h.toUpperCase());
+    }
+  });
   sh.setFrozenRows(1);
 }
 
@@ -68,14 +65,16 @@ function getKoneksiView() {
 function getPresensiPerkelasView() {
   const html = HtmlService.createHtmlOutputFromFile("presensiPerkelas").getContent();
   let js = HtmlService.createHtmlOutputFromFile("presensiPerkelas_js").getContent();
-  js = js.replace(/^\s*<script[^>]*>/i, "").replace(/<\/script>\s*$/i, "");
   js = js.replace(/\.getKelasPresensiPerkelas\(\)/g, ".securePresensiLoad()").replace(/\.getPresensiPerkelasData\(/g, ".securePresensiGetData(").replace(/\.simpanPresensiPerkelas\(/g, ".securePresensiSave(");
   return { success: true, html: html, js: js };
 }
 
-/**
- * View untuk menu Manajemen Pengguna. Permission dicek server-side oleh getUserManagementView().
- */
 function getManajemenPenggunaView() {
-  return getUserManagementView();
+  const view = getUserManagementView();
+  const syncHtml = HtmlService.createHtmlOutputFromFile("UserSync").getContent();
+  let syncJs = HtmlService.createHtmlOutputFromFile("UserSync_js").getContent();
+  syncJs = syncJs.replace(/^\s*<script[^>]*>/i, "").replace(/<\/script>\s*$/i, "");
+  view.html = String(view.html || "") + syncHtml;
+  view.js = String(view.js || "") + "\n" + syncJs;
+  return view;
 }
