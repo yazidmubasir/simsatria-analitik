@@ -2,11 +2,10 @@
  * SIM SATRIA - CORE
  * Multi-school / multi-NPSN
  *
- * URL Web App tunggal:
- *   /exec
+ * URL Web App tunggal: /exec
  *
  * Routing:
- *   Google Account -> USERS -> NPSN -> SCHOOLS -> School Context
+ *   Google Account -> ADMIN_SEKOLAH -> NPSN -> SCHOOLS -> School Context
  */
 function doGet() {
   return HtmlService.createTemplateFromFile("index")
@@ -14,15 +13,18 @@ function doGet() {
     .setTitle("SIM SATRIA")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
+
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
+
 /**
- * Dipakai sekali setelah project dibuat.
- * Isi Script Property MASTER_SPREADSHEET_ID terlebih dahulu.
+ * Inisialisasi registry master.
+ * MASTER hanya mengelola registry sekolah dan administrator sekolah.
  */
 function setupMasterRegistry() {
   const ss = getMasterSpreadsheet_();
+
   ensureSheetHeaders_(ss, "SCHOOLS", [
     "NPSN",
     "NAMA_SEKOLAH",
@@ -35,7 +37,8 @@ function setupMasterRegistry() {
     "WARNA_UTAMA",
     "WARNA_SEKUNDER",
   ]);
-  ensureSheetHeaders_(ss, "USERS", [
+
+  ensureSheetHeaders_(ss, "ADMIN_SEKOLAH", [
     "USER_ID",
     "EMAIL",
     "NIP",
@@ -44,38 +47,48 @@ function setupMasterRegistry() {
     "ROLE",
     "STATUS",
   ]);
+
   return {
     success: true,
     spreadsheetId: ss.getId(),
     spreadsheetName: ss.getName(),
-    message: "Registry Master siap.",
+    message: "Registry Master siap. Sheet SCHOOLS dan ADMIN_SEKOLAH tersedia.",
   };
 }
+
 function ensureSheetHeaders_(ss, name, headers) {
   let sh = ss.getSheetByName(name);
   if (!sh) sh = ss.insertSheet(name);
+
   const current =
     sh.getLastColumn() > 0
       ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]
       : [];
+
   if (!current.length || current.every((v) => String(v).trim() === "")) {
     sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sh.setFrozenRows(1);
     return;
   }
+
   const normalized = current.map((v) =>
     String(v || "")
       .trim()
       .toUpperCase(),
   );
+
   headers.forEach((h) => {
     if (!normalized.includes(h.toUpperCase())) {
       sh.getRange(1, sh.getLastColumn() + 1).setValue(h);
+      normalized.push(h.toUpperCase());
     }
   });
+  sh.setFrozenRows(1);
 }
+
 /**
- * Endpoint utama untuk frontend.
- * Satu kali request saat halaman dibuka.
+ * Endpoint utama frontend.
+ * Satu request saat halaman dibuka.
  */
 function getLoginInfo() {
   const context = getCurrentUserContext();
@@ -99,6 +112,7 @@ function getLoginInfo() {
     },
   };
 }
+
 function getSchoolContextInfo() {
   const c = getCurrentUserContext();
   return {
@@ -114,9 +128,7 @@ function getSchoolContextInfo() {
     driveFolderId: c.school.driveFolderId,
   };
 }
-/**
- * Diagnostik resource sekolah.
- */
+
 function testSchoolResources() {
   const c = getCurrentUserContext();
   const result = {
@@ -136,6 +148,7 @@ function testSchoolResources() {
       error: "",
     },
   };
+
   try {
     const ss = SpreadsheetApp.openById(c.school.spreadsheetId);
     result.spreadsheet.success = true;
@@ -143,6 +156,7 @@ function testSchoolResources() {
   } catch (e) {
     result.spreadsheet.error = e.message;
   }
+
   try {
     const folder = DriveApp.getFolderById(c.school.driveFolderId);
     result.drive.success = true;
@@ -152,6 +166,7 @@ function testSchoolResources() {
   }
   return result;
 }
+
 function testSchoolContextSpeed() {
   const start = Date.now();
   const context = getSchoolContextInfo();
@@ -160,21 +175,11 @@ function testSchoolContextSpeed() {
     context: context,
   };
 }
-//koneksi
+
+// koneksi
 function getKoneksiView() {
   const html = HtmlService.createHtmlOutputFromFile("koneksi").getContent();
   let js = HtmlService.createHtmlOutputFromFile("koneksi_js").getContent();
-  /*
-   * koneksi_js.html menggunakan:
-   *
-   * <script>
-   * ...
-   * </script>
-   *
-   * Karena nanti akan dimasukkan sebagai
-   * script element baru, wrapper tersebut
-   * HARUS dibuang.
-   */
   js = js.replace(/^\s*<script[^>]*>/i, "").replace(/<\/script>\s*$/i, "");
   return {
     success: true,
@@ -182,16 +187,11 @@ function getKoneksiView() {
     js: js,
   };
 }
-//presensi kelas
+
+// presensi kelas
 function getPresensiPerkelasView() {
-  const html =
-    HtmlService.createHtmlOutputFromFile("presensiPerkelas").getContent();
-  let js = HtmlService.createHtmlOutputFromFile(
-    "presensiPerkelas_js",
-  ).getContent();
-  /*
-   * Hapus wrapper <script>
-   */
+  const html = HtmlService.createHtmlOutputFromFile("presensiPerkelas").getContent();
+  let js = HtmlService.createHtmlOutputFromFile("presensiPerkelas_js").getContent();
   js = js.replace(/^\s*<script[^>]*>/i, "").replace(/<\/script>\s*$/i, "");
   return {
     success: true,
