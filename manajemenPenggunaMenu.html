@@ -1,22 +1,100 @@
 <script>
 (function(){
-  function mpInstallMenu(){
-    google.script.run.withSuccessHandler(function(info){
-      if(!info || !info.success || !info.user || String(info.user.role||'').toUpperCase()!=='ADMIN_SEKOLAH') return;
-      if(document.getElementById('menuManajemenPengguna')) return;
-      var sidebar=document.querySelector('.sidebar'); if(!sidebar) return;
-      var a=document.createElement('a'); a.href='javascript:void(0)'; a.id='menuManajemenPengguna'; a.className='menu-item'; a.innerHTML='<i class="bi bi-people-fill me-2"></i>Manajemen Pengguna';
-      a.onclick=function(){
-        google.script.run.withSuccessHandler(function(r){
-          if(!r||!r.success) return;
-          document.getElementById('content').innerHTML=r.html;
-          try { new Function(r.js)(); } catch(err) { alert('Gagal memuat Manajemen Pengguna: '+err.message); return; }
-          if(typeof window.initManajemenPengguna==='function') window.initManajemenPengguna();
-        }).withFailureHandler(function(e){alert(e.message||String(e));}).getManajemenPenggunaView();
-      };
-      sidebar.appendChild(a);
-    }).getLoginInfo();
+  'use strict';
+
+  var MP_RETRY_MAX = 5;
+  var MP_RETRY_DELAY = 800;
+
+  function mpCreateMenu(){
+    if(document.getElementById('menuManajemenPengguna')) return true;
+
+    var sidebar = document.querySelector('.sidebar');
+    if(!sidebar) return false;
+
+    var a = document.createElement('a');
+    a.href = 'javascript:void(0)';
+    a.id = 'menuManajemenPengguna';
+    a.className = 'menu-item';
+    a.innerHTML = '<i class="bi bi-people-fill me-2"></i>Manajemen Pengguna';
+
+    a.onclick = function(){
+      var content = document.getElementById('content');
+      if(!content) return;
+
+      content.innerHTML = '<div class="text-center py-5"><div class="spinner-border" role="status"></div><div class="mt-3 text-muted">Memuat Manajemen Pengguna...</div></div>';
+
+      google.script.run
+        .withSuccessHandler(function(r){
+          if(!r || !r.success){
+            content.innerHTML = '<div class="alert alert-danger">Manajemen Pengguna tidak dapat dimuat.</div>';
+            return;
+          }
+
+          content.innerHTML = r.html || '';
+          try {
+            if(r.js) new Function(r.js)();
+            if(typeof window.initManajemenPengguna === 'function') {
+              window.initManajemenPengguna();
+            }
+          } catch(err) {
+            content.innerHTML = '<div class="alert alert-danger">Gagal memuat Manajemen Pengguna: ' + (err.message || err) + '</div>';
+          }
+        })
+        .withFailureHandler(function(e){
+          content.innerHTML = '<div class="alert alert-danger">Gagal memuat Manajemen Pengguna: ' + (e && e.message ? e.message : String(e)) + '</div>';
+        })
+        .getManajemenPenggunaView();
+    };
+
+    sidebar.appendChild(a);
+    return true;
   }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',mpInstallMenu); else mpInstallMenu();
+
+  function mpCheckAccess(attempt){
+    attempt = attempt || 0;
+
+    if(document.getElementById('menuManajemenPengguna')) return;
+
+    google.script.run
+      .withSuccessHandler(function(info){
+        var role = info && info.success && info.user
+          ? String(info.user.role || '').trim().toUpperCase()
+          : '';
+
+        if(role === 'ADMIN_SEKOLAH') {
+          if(!mpCreateMenu() && attempt < MP_RETRY_MAX) {
+            setTimeout(function(){ mpCheckAccess(attempt + 1); }, MP_RETRY_DELAY);
+          }
+          return;
+        }
+
+        // Jika context belum siap pada saat refresh, coba lagi beberapa kali.
+        if(attempt < MP_RETRY_MAX) {
+          setTimeout(function(){ mpCheckAccess(attempt + 1); }, MP_RETRY_DELAY);
+        }
+      })
+      .withFailureHandler(function(){
+        // Jangan berhenti hanya karena request pertama gagal/otorisasi belum siap.
+        if(attempt < MP_RETRY_MAX) {
+          setTimeout(function(){ mpCheckAccess(attempt + 1); }, MP_RETRY_DELAY);
+        }
+      })
+      .getLoginInfo();
+  }
+
+  function mpStart(){
+    mpCheckAccess(0);
+  }
+
+  if(document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', mpStart);
+  } else {
+    mpStart();
+  }
+
+  // Refresh ringan setelah halaman selesai benar-benar siap.
+  window.addEventListener('load', function(){
+    setTimeout(function(){ mpCheckAccess(0); }, 300);
+  });
 })();
 </script>
