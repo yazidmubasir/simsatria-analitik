@@ -1,0 +1,22 @@
+<script>
+(function(){
+  function mpInstallMenu(){
+    google.script.run.withSuccessHandler(function(info){
+      if(!info || !info.success || !info.user || String(info.user.role||'').toUpperCase()!=='ADMIN_SEKOLAH') return;
+      if(document.getElementById('menuManajemenPengguna')) return;
+      var sidebar=document.querySelector('.sidebar'); if(!sidebar) return;
+      var a=document.createElement('a'); a.href='javascript:void(0)'; a.id='menuManajemenPengguna'; a.className='menu-item'; a.innerHTML='<i class="bi bi-people-fill me-2"></i>Manajemen Pengguna';
+      a.onclick=function(){
+        google.script.run.withSuccessHandler(function(r){
+          if(!r||!r.success) return;
+          document.getElementById('content').innerHTML=r.html;
+          try { new Function(r.js)(); } catch(err) { alert('Gagal memuat Manajemen Pengguna: '+err.message); return; }
+          if(typeof window.initManajemenPengguna==='function') window.initManajemenPengguna();
+        }).withFailureHandler(function(e){alert(e.message||String(e));}).getManajemenPenggunaView();
+      };
+      sidebar.appendChild(a);
+    }).getLoginInfo();
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',mpInstallMenu); else mpInstallMenu();
+})();
+</script>

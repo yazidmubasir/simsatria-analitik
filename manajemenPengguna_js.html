@@ -1,0 +1,84 @@
+<script>
+(function(){
+  window.mpEscape = function(v){
+    return String(v == null ? '' : v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[c];});
+  };
+
+  window.mpBukaForm = function(user){
+    document.getElementById('mpFormCard').style.display='block';
+    document.getElementById('mpUserId').value=user && user.userId || '';
+    document.getElementById('mpEmail').value=user && user.email || '';
+    document.getElementById('mpNip').value=user && user.nip || '';
+    document.getElementById('mpNama').value=user && user.nama || '';
+    document.getElementById('mpRole').value=user && user.role || 'GURU';
+    document.getElementById('mpStatus').value=user && user.status || 'ACTIVE';
+    document.getElementById('mpEmail').readOnly=!!user;
+    document.getElementById('mpSaveText').textContent=user?'Perbarui':'Simpan';
+    window.scrollTo({top:0,behavior:'smooth'});
+  };
+
+  window.mpTutupForm = function(){
+    document.getElementById('mpFormCard').style.display='none';
+    document.getElementById('mpForm').reset();
+    document.getElementById('mpEmail').readOnly=false;
+    document.getElementById('mpSaveText').textContent='Simpan';
+  };
+
+  window.mpAlert = function(message,type){
+    document.getElementById('mpAlert').innerHTML='<div class="alert alert-'+(type||'info')+' alert-dismissible fade show small">'+mpEscape(message)+'<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+  };
+
+  window.mpLoading = function(on){
+    document.getElementById('mpSaveBtn').disabled=on;
+    document.getElementById('mpSaveSpin').classList.toggle('d-none',!on);
+  };
+
+  window.mpSimpan = function(e){
+    e.preventDefault();
+    var data={email:document.getElementById('mpEmail').value,nip:document.getElementById('mpNip').value,nama:document.getElementById('mpNama').value,role:document.getElementById('mpRole').value,status:document.getElementById('mpStatus').value};
+    mpLoading(true);
+    google.script.run.withSuccessHandler(function(r){
+      mpLoading(false);
+      if(!r || !r.success){mpAlert((r&&r.message)||'Gagal menyimpan pengguna.','danger');return;}
+      mpAlert(r.action==='UPDATED'?'Pengguna berhasil diperbarui.':'Pengguna berhasil ditambahkan.','success');
+      mpTutupForm(); mpMuat();
+    }).withFailureHandler(function(err){mpLoading(false);mpAlert(err.message||String(err),'danger');}).saveSchoolUser(data);
+    return false;
+  };
+
+  window.mpEdit = function(i){
+    var u=window.mpUsers&&window.mpUsers[i]; if(u) mpBukaForm(u);
+  };
+
+  window.mpStatus = function(email,status){
+    google.script.run.withSuccessHandler(function(r){if(r&&r.success){mpAlert('Status pengguna diperbarui.','success');mpMuat();}else mpAlert((r&&r.message)||'Gagal mengubah status.','danger');}).withFailureHandler(function(e){mpAlert(e.message||String(e),'danger');}).setSchoolUserStatus(email,status);
+  };
+
+  window.mpHapus = function(email,nama){
+    if(!confirm('Hapus pengguna '+nama+' ('+email+') dari sekolah ini?')) return;
+    google.script.run.withSuccessHandler(function(r){if(r&&r.success){mpAlert('Pengguna berhasil dihapus.','success');mpMuat();}else mpAlert((r&&r.message)||'Gagal menghapus pengguna.','danger');}).withFailureHandler(function(e){mpAlert(e.message||String(e),'danger');}).deleteSchoolUser(email);
+  };
+
+  window.mpRender = function(users){
+    window.mpUsers=users||[];
+    var tbody=document.querySelector('#mpTable tbody');
+    if(!users.length){tbody.innerHTML='<tr><td colspan="7" class="text-center py-4 text-muted">Belum ada pengguna yang dikelola.</td></tr>';return;}
+    tbody.innerHTML=users.map(function(u,i){
+      var badge=u.status==='ACTIVE'?'success':'secondary';
+      var next=u.status==='ACTIVE'?'INACTIVE':'ACTIVE';
+      return '<tr><td>'+(i+1)+'</td><td class="fw-semibold">'+mpEscape(u.nama)+'</td><td>'+mpEscape(u.email)+'</td><td>'+mpEscape(u.nip||'-')+'</td><td><span class="badge text-bg-primary">'+mpEscape(u.role)+'</span></td><td><span class="badge text-bg-'+badge+'">'+mpEscape(u.status)+'</span></td><td class="text-end"><div class="btn-group btn-group-sm"><button class="btn btn-outline-primary" title="Edit" onclick="mpEdit('+i+')"><i class="bi bi-pencil"></i></button><button class="btn btn-outline-warning" title="Aktif/Nonaktif" onclick="mpStatus(\''+mpEscape(u.email).replace(/'/g,"\\'")+'\',\''+next+'\')"><i class="bi bi-toggle2-on"></i></button><button class="btn btn-outline-danger" title="Hapus" onclick="mpHapus(\''+mpEscape(u.email).replace(/'/g,"\\'")+'\',\''+mpEscape(u.nama).replace(/'/g,"\\'")+'\')"><i class="bi bi-trash"></i></button></div></td></tr>';
+    }).join('');
+  };
+
+  window.mpMuat = function(){
+    document.querySelector('#mpTable tbody').innerHTML='<tr><td colspan="7" class="text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span>Memuat pengguna...</td></tr>';
+    google.script.run.withSuccessHandler(function(r){
+      if(!r||!r.success){mpAlert((r&&r.message)||'Gagal memuat pengguna.','danger');return;}
+      document.getElementById('mpSekolah').textContent=(r.sekolah||'')+' • NPSN '+(r.npsn||'');
+      mpRender(r.users||[]);
+    }).withFailureHandler(function(e){mpAlert(e.message||String(e),'danger');}).getSchoolUsers();
+  };
+
+  window.initManajemenPengguna = function(){mpMuat();};
+})();
+</script>

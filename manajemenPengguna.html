@@ -1,0 +1,75 @@
+<div class="container-fluid py-3" id="manajemenPenggunaApp">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h5 class="mb-1 fw-bold">Manajemen Pengguna</h5>
+      <div class="text-muted small" id="mpSekolah">Memuat sekolah...</div>
+    </div>
+    <button class="btn btn-success btn-sm px-3" type="button" onclick="mpBukaForm()">
+      <i class="bi bi-person-plus me-1"></i> Tambah Guru
+    </button>
+  </div>
+
+  <div id="mpAlert"></div>
+
+  <div class="card border-0 shadow-sm mb-3" id="mpFormCard" style="display:none;">
+    <div class="card-header bg-success text-white fw-semibold">Tambah / Ubah Pengguna</div>
+    <div class="card-body">
+      <form id="mpForm" onsubmit="return mpSimpan(event)">
+        <input type="hidden" id="mpUserId">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Email Google</label>
+            <input class="form-control" id="mpEmail" type="email" required placeholder="nama@gmail.com">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">NIP</label>
+            <input class="form-control" id="mpNip" type="text" placeholder="NIP guru">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Nama</label>
+            <input class="form-control" id="mpNama" type="text" required placeholder="Nama lengkap guru">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small fw-semibold">Role</label>
+            <select class="form-select" id="mpRole">
+              <option value="GURU">GURU</option>
+              <option value="WALI_KELAS">WALI KELAS</option>
+              <option value="KARYAWAN">KARYAWAN</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small fw-semibold">Status</label>
+            <select class="form-select" id="mpStatus">
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="INACTIVE">INACTIVE</option>
+            </select>
+          </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-3">
+          <button class="btn btn-light border" type="button" onclick="mpTutupForm()">Batal</button>
+          <button class="btn btn-success" id="mpSaveBtn" type="submit">
+            <span class="spinner-border spinner-border-sm d-none" id="mpSaveSpin"></span>
+            <span id="mpSaveText">Simpan</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">Pengguna Sekolah</span>
+        <button class="btn btn-outline-secondary btn-sm" onclick="mpMuat()"><i class="bi bi-arrow-clockwise"></i></button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="mpTable">
+          <thead class="table-light">
+            <tr><th>No</th><th>Nama</th><th>Email</th><th>NIP</th><th>Role</th><th>Status</th><th class="text-end">Aksi</th></tr>
+          </thead>
+          <tbody><tr><td colspan="7" class="text-center py-4 text-muted">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
