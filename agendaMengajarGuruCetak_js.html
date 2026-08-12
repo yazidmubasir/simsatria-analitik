@@ -1,0 +1,1688 @@
+<script>
+/**
+ * ============================================================
+ * SIM SATRIA MULTI SCHOOL
+ * MODUL : TABEL & CETAK AGENDA GURU
+ * FILE  : AGENDA_CETAK_MultiSchool_FINAL.html
+ * ============================================================
+ */
+
+var dataAgendaGlobal = [];
+var currentPageAgenda = 1;
+var rowPerPageAgenda = 10;
+
+
+/* ============================================================
+   ESCAPE HTML
+   ============================================================ */
+
+function escapeAgendaHtml(value) {
+
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+}
+
+
+/* ============================================================
+   MENU
+   ============================================================ */
+
+function menuTabelAgendaGuru() {
+
+  var html = `
+
+    <div class="container-fluid py-3">
+
+      <div class="card border-0 shadow-sm rounded-4">
+
+        <div class="card-body">
+
+          <div class="
+            d-flex
+            justify-content-between
+            align-items-center
+            flex-wrap
+            gap-2
+            mb-4
+          ">
+
+            <div>
+
+              <h3 class="fw-bold text-primary mb-1">
+
+                <i class="bi bi-journal-check me-2"></i>
+
+                Data Agenda Guru
+
+              </h3>
+
+              <div class="small text-muted">
+
+                Agenda mengajar berdasarkan
+                Spreadsheet sekolah aktif.
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+          <!-- =================================================
+               FILTER
+          ================================================== -->
+
+          <div class="row g-3 align-items-end mb-4">
+
+
+            <!-- GURU -->
+
+            <div class="col-12 col-md-4">
+
+              <label
+                for="filterNamaAgenda"
+                class="form-label fw-semibold">
+
+                Nama Guru
+
+              </label>
+
+              <select
+                id="filterNamaAgenda"
+                class="form-select">
+
+                <option value="">
+                  Memuat guru...
+                </option>
+
+              </select>
+
+            </div>
+
+
+            <!-- TANGGAL AWAL -->
+
+            <div class="col-12 col-md-3">
+
+              <label
+                for="tanggalAwalAgenda"
+                class="form-label fw-semibold">
+
+                Tanggal Awal
+
+              </label>
+
+              <input
+                type="date"
+                id="tanggalAwalAgenda"
+                class="form-control">
+
+            </div>
+
+
+            <!-- TANGGAL AKHIR -->
+
+            <div class="col-12 col-md-3">
+
+              <label
+                for="tanggalAkhirAgenda"
+                class="form-label fw-semibold">
+
+                Tanggal Akhir
+
+              </label>
+
+              <input
+                type="date"
+                id="tanggalAkhirAgenda"
+                class="form-control">
+
+            </div>
+
+
+            <!-- TAMPILKAN -->
+
+            <div class="col-12 col-md-2 d-grid">
+
+              <button
+                type="button"
+                id="btnTampilkanAgenda"
+                class="btn btn-primary"
+                onclick="tampilkanAgendaByNama()">
+
+                <span id="textBtnAgenda">
+
+                  <i class="bi bi-search me-1"></i>
+                  Tampilkan
+
+                </span>
+
+              </button>
+
+            </div>
+
+          </div>
+
+
+          <!-- =================================================
+               CETAK
+          ================================================== -->
+
+          <div class="row mb-4">
+
+            <div class="col-12 col-md-4 d-grid">
+
+              <button
+                type="button"
+                id="btnCetakAgenda"
+                class="btn btn-primary"
+                onclick="cetakPDFAgenda()">
+
+                <span id="textBtnCetakAgenda">
+
+                  <i class="bi bi-file-earmark-pdf me-2"></i>
+
+                  Cetak Agenda Satria Mengajar
+
+                </span>
+
+              </button>
+
+            </div>
+
+          </div>
+
+
+          <!-- =================================================
+               TABLE
+          ================================================== -->
+
+          <div class="table-responsive">
+
+            <table
+              class="
+                table
+                table-bordered
+                table-hover
+                align-middle
+              ">
+
+              <thead class="text-center">
+
+                <tr>
+
+                  <th>Tanggal</th>
+
+                  <th>Sesi</th>
+
+                  <th>Kelas</th>
+
+                  <th>Tujuan Pembelajaran</th>
+
+                  <th>DPL</th>
+
+                  <th>Pengalaman Belajar</th>
+
+                  <th>Prinsip Pembelajaran</th>
+
+                  <th>Rekap Murid Tidak Ikut</th>
+
+                  <th>Materi Pembelajaran</th>
+
+                  <th>Bukti Fisik</th>
+
+                  <th>Aksi</th>
+
+                </tr>
+
+              </thead>
+
+              <tbody id="tbodyAgendaTable">
+
+                <tr>
+
+                  <td
+                    colspan="11"
+                    class="text-center text-muted py-4">
+
+                    Silakan pilih nama guru dan
+                    periode tanggal.
+
+                  </td>
+
+                </tr>
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+
+          <!-- =================================================
+               PAGINATION
+          ================================================== -->
+
+          <div class="
+            d-flex
+            justify-content-between
+            align-items-center
+            mt-3
+          ">
+
+            <button
+              type="button"
+              class="btn btn-outline-primary"
+              onclick="prevPageAgenda()">
+
+              <i class="bi bi-chevron-left"></i>
+
+              Prev
+
+            </button>
+
+
+            <div
+              id="infoPageAgenda"
+              class="fw-semibold">
+
+              Halaman 1 / 1
+
+            </div>
+
+
+            <button
+              type="button"
+              class="btn btn-outline-primary"
+              onclick="nextPageAgenda()">
+
+              Next
+
+              <i class="bi bi-chevron-right"></i>
+
+            </button>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  `;
+
+
+  var content =
+    document.getElementById(
+      'content'
+    );
+
+  if (!content) {
+
+    console.error(
+      'Element #content tidak ditemukan.'
+    );
+
+    return;
+
+  }
+
+
+  content.innerHTML =
+    html;
+
+
+  loadNamaAgendaGuru();
+
+}
+
+
+/* ============================================================
+   LOAD GURU
+   ============================================================ */
+
+function loadNamaAgendaGuru() {
+
+  var select =
+    document.getElementById(
+      'filterNamaAgenda'
+    );
+
+  if (!select) return;
+
+
+  select.innerHTML =
+    '<option value="">Memuat guru...</option>';
+
+
+  google.script.run
+
+    .withSuccessHandler(
+      function(data) {
+
+        data =
+          Array.isArray(data)
+            ? data
+            : [];
+
+
+        var html =
+          '<option value="">-- Pilih Nama Guru --</option>';
+
+
+        data.forEach(function(item) {
+
+          var nama =
+            String(
+              item && item.nama || ''
+            ).trim();
+
+          var nip =
+            String(
+              item && item.nip || ''
+            ).trim();
+
+
+          if (!nama) return;
+
+
+          /*
+           * PENTING:
+           * VALUE SELECT = NIP
+           *
+           * Jadi ketika Admin memilih nama guru,
+           * sistem selalu membawa NIP guru tersebut.
+           */
+
+          html +=
+            '<option value="' +
+            escapeAgendaHtml(nip) +
+            '" ' +
+            'data-nama="' +
+            escapeAgendaHtml(nama) +
+            '">' +
+            escapeAgendaHtml(nama) +
+            (
+              nip
+                ? ' — ' +
+                  escapeAgendaHtml(nip)
+                : ''
+            ) +
+            '</option>';
+
+        });
+
+
+        select.innerHTML =
+          html;
+
+
+        /*
+         * Ambil informasi akun.
+         */
+
+        google.script.run
+
+          .withSuccessHandler(
+            function(info) {
+
+              info =
+                info || {};
+
+
+              var role =
+                String(
+                  info.role || ''
+                ).toUpperCase();
+
+
+              var currentNip =
+                String(
+                  info.nip || ''
+                ).trim();
+
+
+              var currentNama =
+                String(
+                  info.nama || ''
+                ).trim();
+
+
+              /*
+               * Jika akun Guru:
+               * otomatis pilih guru berdasarkan NIP.
+               */
+
+              if (
+                role === 'GURU' ||
+                role === 'GURU_MAPEL'
+              ) {
+
+                var found = false;
+
+
+                for (
+                  var i = 0;
+                  i < data.length;
+                  i++
+                ) {
+
+                  var item =
+                    data[i];
+
+                  var itemNip =
+                    String(
+                      item.nip || ''
+                    ).trim();
+
+                  var itemNama =
+                    String(
+                      item.nama || ''
+                    ).trim();
+
+
+                  if (
+                    currentNip &&
+                    itemNip === currentNip
+                  ) {
+
+                    select.value =
+                      itemNip;
+
+                    found = true;
+
+                    break;
+
+                  }
+
+                  /*
+                   * Fallback nama bila School Context
+                   * belum membawa NIP.
+                   */
+
+                  if (
+                    !currentNip &&
+                    itemNama.toLowerCase() ===
+                    currentNama.toLowerCase()
+                  ) {
+
+                    select.value =
+                      itemNip;
+
+                    found = true;
+
+                    break;
+
+                  }
+
+                }
+
+
+                if (found) {
+
+                  select.disabled =
+                    true;
+
+                }
+
+              }
+
+            }
+          )
+
+          .withFailureHandler(
+            function(err) {
+
+              console.warn(
+                'Gagal memuat info user:',
+                err
+              );
+
+            }
+          )
+
+          .getAgendaCurrentUserInfoMultiSchool();
+
+      }
+    )
+
+    .withFailureHandler(
+      function(err) {
+
+        select.innerHTML =
+          '<option value="">Gagal memuat guru</option>';
+
+
+        alert(
+          'Gagal memuat data guru: ' +
+          (
+            err.message ||
+            err
+          )
+        );
+
+      }
+    )
+
+    .getAgendaGuruListMultiSchool();
+
+}
+
+
+/* ============================================================
+   AMBIL GURU TERPILIH
+   ============================================================ */
+
+function getSelectedAgendaGuru_() {
+
+  var select =
+    document.getElementById(
+      'filterNamaAgenda'
+    );
+
+  if (!select) {
+    return null;
+  }
+
+
+  var option =
+    select.options[
+      select.selectedIndex
+    ];
+
+
+  if (
+    !option ||
+    !option.value
+  ) {
+
+    return null;
+
+  }
+
+
+  return {
+
+    nip:
+      String(
+        option.value || ''
+      ).trim(),
+
+    nama:
+      String(
+        option.getAttribute(
+          'data-nama'
+        ) || option.textContent || ''
+      )
+        .replace(
+          /\s+—\s+\d+$/,
+          ''
+        )
+        .trim()
+
+  };
+
+}
+
+
+/* ============================================================
+   TAMPILKAN
+   ============================================================ */
+
+function tampilkanAgendaByNama() {
+
+  var guru =
+    getSelectedAgendaGuru_();
+
+
+  var tglAwal =
+    document.getElementById(
+      'tanggalAwalAgenda'
+    ).value;
+
+
+  var tglAkhir =
+    document.getElementById(
+      'tanggalAkhirAgenda'
+    ).value;
+
+
+  if (!guru) {
+
+    alert(
+      'Pilih nama guru terlebih dahulu.'
+    );
+
+    return;
+
+  }
+
+
+  if (!guru.nip) {
+
+    alert(
+      'NIP guru tidak ditemukan. Pastikan sheet Guru memiliki kolom NIP.'
+    );
+
+    return;
+
+  }
+
+
+  if (!tglAwal) {
+
+    alert(
+      'Pilih tanggal awal.'
+    );
+
+    return;
+
+  }
+
+
+  if (!tglAkhir) {
+
+    alert(
+      'Pilih tanggal akhir.'
+    );
+
+    return;
+
+  }
+
+
+  if (tglAwal > tglAkhir) {
+
+    alert(
+      'Tanggal awal tidak boleh lebih besar dari tanggal akhir.'
+    );
+
+    return;
+
+  }
+
+
+  var btn =
+    document.getElementById(
+      'btnTampilkanAgenda'
+    );
+
+
+  var text =
+    document.getElementById(
+      'textBtnAgenda'
+    );
+
+
+  btn.disabled =
+    true;
+
+
+  text.innerHTML =
+    '<span class="spinner-border spinner-border-sm me-1"></span>' +
+    ' Memuat...';
+
+
+  google.script.run
+
+    .withSuccessHandler(
+      function(data) {
+
+        dataAgendaGlobal =
+          Array.isArray(data)
+            ? data
+            : [];
+
+
+        currentPageAgenda =
+          1;
+
+
+        renderAgendaTable(
+          dataAgendaGlobal
+        );
+
+
+        btn.disabled =
+          false;
+
+
+        text.innerHTML =
+          '<i class="bi bi-search me-1"></i>' +
+          ' Tampilkan';
+
+
+        if (
+          !dataAgendaGlobal.length
+        ) {
+
+          /*
+           * Berikan informasi yang jelas,
+           * bukan sekadar tabel kosong.
+           */
+
+          console.info(
+            'Tidak ditemukan agenda untuk:',
+            guru
+          );
+
+        }
+
+      }
+    )
+
+    .withFailureHandler(
+      function(err) {
+
+        alert(
+          'Gagal memuat agenda: ' +
+          (
+            err.message ||
+            err
+          )
+        );
+
+
+        btn.disabled =
+          false;
+
+
+        text.innerHTML =
+          '<i class="bi bi-search me-1"></i>' +
+          ' Tampilkan';
+
+      }
+    )
+
+    /*
+     * NAMA + TANGGAL + NIP
+     */
+    .getAgendaGuruByFilterMultiSchool(
+      guru.nama,
+      tglAwal,
+      tglAkhir,
+      guru.nip
+    );
+
+}
+
+
+/* ============================================================
+   RENDER TABLE
+   ============================================================ */
+
+function renderAgendaTable(
+  data
+) {
+
+  var tbody =
+    document.getElementById(
+      'tbodyAgendaTable'
+    );
+
+
+  if (!tbody) return;
+
+
+  var start =
+    (
+      currentPageAgenda - 1
+    ) *
+    rowPerPageAgenda;
+
+
+  var end =
+    start +
+    rowPerPageAgenda;
+
+
+  var pageData =
+    data.slice(
+      start,
+      end
+    );
+
+
+  if (!pageData.length) {
+
+    tbody.innerHTML =
+      '<tr>' +
+
+      '<td colspan="11" ' +
+      'class="text-center text-muted py-4">' +
+
+      (
+        data.length
+          ? 'Tidak ada data pada halaman ini.'
+          : 'Tidak ada agenda untuk guru dan periode yang dipilih.'
+      ) +
+
+      '</td>' +
+
+      '</tr>';
+
+  } else {
+
+    var html = '';
+
+
+    pageData.forEach(
+      function(d) {
+
+        var bukti =
+          String(
+            d.buktiFisik || ''
+          ).trim();
+
+
+        var buktiHtml =
+          bukti
+
+            ? (
+              '<a href="' +
+              escapeAgendaHtml(bukti) +
+              '" target="_blank" ' +
+              'class="btn btn-sm btn-outline-primary" ' +
+              'title="Buka bukti fisik">' +
+
+              '<i class="bi bi-paperclip"></i>' +
+
+              '</a>'
+            )
+
+            : '-';
+
+
+        html +=
+          '<tr>' +
+
+          '<td class="text-center">' +
+          escapeAgendaHtml(
+            d.tanggal || '-'
+          ) +
+          '</td>' +
+
+          '<td class="text-center">' +
+          escapeAgendaHtml(
+            d.sesi || '-'
+          ) +
+          '</td>' +
+
+          '<td class="text-center">' +
+          escapeAgendaHtml(
+            d.kelas || '-'
+          ) +
+          '</td>' +
+
+          '<td>' +
+          escapeAgendaHtml(
+            d.tujuanPembelajaran || '-'
+          ) +
+          '</td>' +
+
+          '<td>' +
+          escapeAgendaHtml(
+            d.dpl || '-'
+          ) +
+          '</td>' +
+
+          '<td>' +
+          escapeAgendaHtml(
+            d.pengalamanBelajar || '-'
+          ) +
+          '</td>' +
+
+          '<td>' +
+          escapeAgendaHtml(
+            d.prinsipPembelajaran || '-'
+          ) +
+          '</td>' +
+
+          '<td>' +
+          escapeAgendaHtml(
+            d.rekapMuridTidakIkut || '-'
+          ) +
+          '</td>' +
+
+          '<td>' +
+          escapeAgendaHtml(
+            d.materiPembelajaran || '-'
+          ) +
+          '</td>' +
+
+          '<td class="text-center">' +
+          buktiHtml +
+          '</td>' +
+
+          '<td class="text-center">' +
+
+          '<div class="btn-group btn-group-sm">' +
+
+          '<button ' +
+          'type="button" ' +
+          'class="btn btn-warning" ' +
+          'onclick=\'editAgenda(' +
+          JSON.stringify(d) +
+          ')\' ' +
+          'title="Edit">' +
+
+          '<i class="bi bi-pencil-square"></i>' +
+
+          '</button>' +
+
+          '<button ' +
+          'type="button" ' +
+          'class="btn btn-danger" ' +
+          'onclick="hapusAgendaTable(' +
+          Number(d.row) +
+          ')" ' +
+          'title="Hapus">' +
+
+          '<i class="bi bi-trash"></i>' +
+
+          '</button>' +
+
+          '</div>' +
+
+          '</td>' +
+
+          '</tr>';
+
+      }
+    );
+
+
+    tbody.innerHTML =
+      html;
+
+  }
+
+
+  var totalPage =
+    Math.ceil(
+      data.length /
+      rowPerPageAgenda
+    ) || 1;
+
+
+  document.getElementById(
+    'infoPageAgenda'
+  ).textContent =
+    'Halaman ' +
+    currentPageAgenda +
+    ' / ' +
+    totalPage;
+
+}
+
+
+/* ============================================================
+   PAGINATION
+   ============================================================ */
+
+function nextPageAgenda() {
+
+  var totalPage =
+    Math.ceil(
+      dataAgendaGlobal.length /
+      rowPerPageAgenda
+    ) || 1;
+
+
+  if (
+    currentPageAgenda <
+    totalPage
+  ) {
+
+    currentPageAgenda++;
+
+    renderAgendaTable(
+      dataAgendaGlobal
+    );
+
+  }
+
+}
+
+
+function prevPageAgenda() {
+
+  if (
+    currentPageAgenda > 1
+  ) {
+
+    currentPageAgenda--;
+
+    renderAgendaTable(
+      dataAgendaGlobal
+    );
+
+  }
+
+}
+
+
+/* ============================================================
+   EDIT
+   ============================================================ */
+
+function editAgenda(data) {
+
+  window.rowEditAgenda =
+    data.row;
+
+  window.modeEditAgenda =
+    true;
+
+
+  if (
+    typeof menuAgenda ===
+    'function'
+  ) {
+
+    menuAgenda();
+
+  }
+
+
+  waitForAgendaForm(
+    function() {
+
+      var el;
+
+
+      el =
+        document.getElementById(
+          'nipAgendaGuru'
+        );
+
+      if (el) {
+        el.value =
+          data.nip || '';
+      }
+
+
+      el =
+        document.getElementById(
+          'namaAgendaGuru'
+        );
+
+      if (el) {
+        el.value =
+          data.namaGuru || '';
+      }
+
+
+      el =
+        document.getElementById(
+          'tanggalAgendaGuru'
+        );
+
+      if (el) {
+
+        el.value =
+          convertTanggalAgenda(
+            data.tanggal
+          );
+
+      }
+
+
+      el =
+        document.getElementById(
+          'kelasAgendaGuru'
+        );
+
+      if (el) {
+
+        el.value =
+          data.kelas || '';
+
+      }
+
+
+      el =
+        document.getElementById(
+          'tujuanAgendaGuru'
+        );
+
+      if (el) {
+
+        el.value =
+          data.tujuanPembelajaran || '';
+
+      }
+
+
+      el =
+        document.getElementById(
+          'materiAgendaGuru'
+        );
+
+      if (el) {
+
+        el.value =
+          data.materiPembelajaran || '';
+
+      }
+
+
+      el =
+        document.getElementById(
+          'siswaTidakMasukAgendaGuru'
+        );
+
+      if (el) {
+
+        el.value =
+          data.rekapMuridTidakIkut || '';
+
+      }
+
+
+      var checkboxes =
+        document.querySelectorAll(
+          '.checkSesiAgenda,' +
+          '.checkDPLAgenda,' +
+          '.checkPMAgenda,' +
+          '.checkPrinsipAgenda'
+        );
+
+
+      for (
+        var i = 0;
+        i < checkboxes.length;
+        i++
+      ) {
+
+        checkboxes[i].checked =
+          false;
+
+      }
+
+
+      function checkValues(
+        selector,
+        values
+      ) {
+
+        if (!values) return;
+
+
+        var list =
+          String(values)
+            .split(',');
+
+
+        var nodes =
+          document.querySelectorAll(
+            selector
+          );
+
+
+        list.forEach(
+          function(value) {
+
+            value =
+              value.trim();
+
+
+            for (
+              var j = 0;
+              j < nodes.length;
+              j++
+            ) {
+
+              if (
+                String(
+                  nodes[j].value
+                ).trim() ===
+                value
+              ) {
+
+                nodes[j].checked =
+                  true;
+
+              }
+
+            }
+
+          }
+        );
+
+      }
+
+
+      checkValues(
+        '.checkSesiAgenda',
+        data.sesi
+      );
+
+      checkValues(
+        '.checkDPLAgenda',
+        data.dpl
+      );
+
+      checkValues(
+        '.checkPMAgenda',
+        data.pengalamanBelajar
+      );
+
+      checkValues(
+        '.checkPrinsipAgenda',
+        data.prinsipPembelajaran
+      );
+
+
+      if (
+        data.buktiFisik &&
+        document.getElementById(
+          'previewAgendaGuru'
+        )
+      ) {
+
+        document.getElementById(
+          'previewAgendaGuru'
+        ).src =
+          data.buktiFisik;
+
+      }
+
+
+      var btn =
+        document.getElementById(
+          'btnSimpanAgendaGuru'
+        );
+
+
+      if (btn) {
+
+        btn.innerHTML =
+          '<i class="bi bi-pencil-square me-2"></i>' +
+          'Update Agenda Mengajar';
+
+      }
+
+    }
+  );
+
+}
+
+
+/* ============================================================
+   WAIT FORM
+   ============================================================ */
+
+function waitForAgendaForm(
+  callback
+) {
+
+  var count = 0;
+
+
+  var interval =
+    setInterval(
+      function() {
+
+        count++;
+
+
+        if (
+          document.getElementById(
+            'namaAgendaGuru'
+          ) ||
+          count > 30
+        ) {
+
+          clearInterval(
+            interval
+          );
+
+
+          if (
+            typeof callback ===
+            'function'
+          ) {
+
+            callback();
+
+          }
+
+        }
+
+      },
+      100
+    );
+
+}
+
+
+/* ============================================================
+   CONVERT DATE
+   ============================================================ */
+
+function convertTanggalAgenda(
+  tgl
+) {
+
+  if (!tgl) return '';
+
+
+  tgl =
+    String(tgl);
+
+
+  if (
+    tgl.indexOf('/') !== -1
+  ) {
+
+    var p =
+      tgl.split('/');
+
+
+    if (p.length === 3) {
+
+      return (
+        p[2] +
+        '-' +
+        p[1].padStart(2, '0') +
+        '-' +
+        p[0].padStart(2, '0')
+      );
+
+    }
+
+  }
+
+
+  return tgl;
+
+}
+
+
+/* ============================================================
+   HAPUS
+   ============================================================ */
+
+function hapusAgendaTable(
+  row
+) {
+
+  if (
+    !confirm(
+      'Apakah Anda yakin ingin menghapus data agenda ini?'
+    )
+  ) {
+    return;
+  }
+
+
+  google.script.run
+
+    .withSuccessHandler(
+      function(msg) {
+
+        alert(msg);
+
+        tampilkanAgendaByNama();
+
+      }
+    )
+
+    .withFailureHandler(
+      function(err) {
+
+        alert(
+          'Gagal menghapus data: ' +
+          (
+            err.message ||
+            err
+          )
+        );
+
+      }
+    )
+
+    .hapusAgendaGuruTable(
+      row
+    );
+
+}
+
+
+/* ============================================================
+   CETAK PDF
+   ============================================================ */
+
+function cetakPDFAgenda() {
+
+  var guru =
+    getSelectedAgendaGuru_();
+
+
+  var tglAwal =
+    document.getElementById(
+      'tanggalAwalAgenda'
+    ).value;
+
+
+  var tglAkhir =
+    document.getElementById(
+      'tanggalAkhirAgenda'
+    ).value;
+
+
+  if (!guru) {
+
+    alert(
+      'Pilih nama guru terlebih dahulu.'
+    );
+
+    return;
+
+  }
+
+
+  if (!guru.nip) {
+
+    alert(
+      'NIP guru tidak ditemukan.'
+    );
+
+    return;
+
+  }
+
+
+  if (!tglAwal || !tglAkhir) {
+
+    alert(
+      'Tanggal awal dan tanggal akhir wajib diisi.'
+    );
+
+    return;
+
+  }
+
+
+  if (tglAwal > tglAkhir) {
+
+    alert(
+      'Tanggal awal tidak boleh lebih besar dari tanggal akhir.'
+    );
+
+    return;
+
+  }
+
+
+  var btn =
+    document.getElementById(
+      'btnCetakAgenda'
+    );
+
+
+  var text =
+    document.getElementById(
+      'textBtnCetakAgenda'
+    );
+
+
+  btn.disabled =
+    true;
+
+
+  text.innerHTML =
+    '<span class="spinner-border spinner-border-sm me-2"></span>' +
+    ' Membuat PDF...';
+
+
+  google.script.run
+
+    .withSuccessHandler(
+      function(result) {
+
+        btn.disabled =
+          false;
+
+
+        text.innerHTML =
+          '<i class="bi bi-file-earmark-pdf me-2"></i>' +
+          ' Cetak Agenda Satria Mengajar';
+
+
+        var url =
+          typeof result === 'string'
+            ? result
+            : (
+              result &&
+              result.url
+            );
+
+
+        if (url) {
+
+          window.open(
+            url,
+            '_blank'
+          );
+
+        } else {
+
+          alert(
+            'PDF berhasil dibuat, tetapi URL tidak diterima.'
+          );
+
+        }
+
+      }
+    )
+
+    .withFailureHandler(
+      function(err) {
+
+        alert(
+          'Gagal membuat PDF: ' +
+          (
+            err.message ||
+            err
+          )
+        );
+
+
+        btn.disabled =
+          false;
+
+
+        text.innerHTML =
+          '<i class="bi bi-file-earmark-pdf me-2"></i>' +
+          ' Cetak Agenda Satria Mengajar';
+
+      }
+    )
+
+    .cetakPDFAgendaGuru(
+      guru.nama,
+      guru.nip,
+      tglAwal,
+      tglAkhir
+    );
+
+}
+
+
+/* ============================================================
+   AUTO DEFAULT DATE
+   ============================================================ */
+
+function setDefaultTanggalAgenda_() {
+
+  var awal =
+    document.getElementById(
+      'tanggalAwalAgenda'
+    );
+
+  var akhir =
+    document.getElementById(
+      'tanggalAkhirAgenda'
+    );
+
+
+  if (
+    !awal ||
+    !akhir
+  ) {
+    return;
+  }
+
+
+  if (!awal.value) {
+
+    var d =
+      new Date();
+
+    d.setDate(
+      1
+    );
+
+
+    awal.value =
+      d.toISOString()
+        .slice(
+          0,
+          10
+        );
+
+  }
+
+
+  if (!akhir.value) {
+
+    var d2 =
+      new Date();
+
+
+    akhir.value =
+      d2.toISOString()
+        .slice(
+          0,
+          10
+        );
+
+  }
+
+}
+</script>

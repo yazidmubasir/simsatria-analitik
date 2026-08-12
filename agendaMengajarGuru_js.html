@@ -1,0 +1,847 @@
+<script>
+/* =========================================================
+   SIM SATRIA - AGENDA MENGAJAR GURU
+   FRONTEND MULTI SCHOOL
+   ========================================================= */
+
+let dataGuruAgenda = [];
+let agendaSchoolContext = null;
+let agendaUserContext = null;
+
+/* =========================================================
+   MENU AGENDA
+   ========================================================= */
+function menuAgenda() {
+
+  document.getElementById('content').innerHTML = `
+
+    <div class="container-fluid px-0">
+
+      <div class="card border-0 shadow-lg">
+
+        <div class="card-header text-white py-4">
+
+          <div class="d-flex justify-content-between align-items-center gap-3">
+
+            <div>
+              <h3 class="fw-bold mb-1">
+                📝 Satria Mengajar
+              </h3>
+              <div id="agendaSchoolName" class="small opacity-75">
+                Memuat School Context...
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <div class="card-body p-3 p-lg-4">
+
+          <div id="agendaAlert" class="alert d-none small"></div>
+
+          <div class="row g-3">
+
+            <!-- =================================================
+                 INFORMASI GURU
+                 ================================================= -->
+
+            <div class="col-lg-6">
+
+              <div class="card border-0 bg-light h-100">
+
+                <div class="card-body">
+
+                  <h5 class="fw-bold text-primary mb-4">
+                    👨‍🏫 Informasi Guru
+                  </h5>
+
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                      Guru
+                    </label>
+                    <select id="guru" class="form-select shadow-sm">
+                      <option value="">Memuat data guru...</option>
+                    </select>
+                  </div>
+
+                  <div class="row g-2">
+
+                    <div class="col-md-6">
+                      <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                          NIP
+                        </label>
+                        <input id="nip" class="form-control shadow-sm" readonly>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                          Mapel
+                        </label>
+                        <input id="mapel" class="form-control shadow-sm" readonly>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                      Tanggal Mengajar
+                    </label>
+                    <input type="date" id="tanggalAgenda" class="form-control shadow-sm">
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                      Kelas
+                    </label>
+                    <select id="kelasAgenda" class="form-select shadow-sm">
+                      <option value="">Memuat kelas...</option>
+                    </select>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                      Tujuan Pembelajaran
+                    </label>
+                    <textarea id="tujuan" class="form-control shadow-sm" rows="5"></textarea>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                      Materi Pembelajaran
+                    </label>
+                    <textarea id="materi" class="form-control shadow-sm" rows="5"></textarea>
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+            <!-- =================================================
+                 PEMBELAJARAN
+                 ================================================= -->
+
+            <div class="col-lg-6">
+
+              <div class="card border-0 bg-light h-100">
+
+                <div class="card-body">
+
+                  <h5 class="fw-bold text-primary mb-4">
+                    📚 Pembelajaran Mendalam
+                  </h5>
+
+                  <div class="mb-4">
+                    <label class="form-label fw-semibold">
+                      Jam ke
+                    </label>
+                    <div class="d-flex flex-wrap gap-3">
+                      ${[1,2,3,4,5,6,7,8,9,10].map(i => `
+                        <div class="form-check">
+                          <input class="form-check-input sesiCheck" type="checkbox" value="Jam ke-${i}">
+                          <label class="form-check-label">
+                            Jam ke-${i}
+                          </label>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+
+                  <div class="mb-4">
+                    <label class="form-label fw-semibold">
+                      Dimensi Profil Lulusan
+                    </label>
+                    <div class="row">
+                      ${[
+                        'Keimanan dan Ketaqwaan',
+                        'Penalaran Kritis',
+                        'Kesehatan',
+                        'Kewargaan',
+                        'Komunikasi',
+                        'Kemandirian',
+                        'Kreativitas',
+                        'Kolaborasi'
+                      ].map(d => `
+                        <div class="col-md-6">
+                          <div class="form-check mb-2">
+                            <input class="form-check-input dplCheck" type="checkbox" value="${d}">
+                            <label class="form-check-label">${d}</label>
+                          </div>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+
+                  <div class="mb-4">
+                    <label class="form-label fw-semibold">
+                      Pengalaman Belajar
+                    </label>
+                    <div class="d-flex flex-wrap gap-3">
+                      ${['Memahami','Menerapkan','Merefleksi'].map(p => `
+                        <div class="form-check">
+                          <input class="form-check-input pmCheck" type="checkbox" value="${p}">
+                          <label class="form-check-label">${p}</label>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+
+                  <div class="mb-4">
+                    <label class="form-label fw-semibold">
+                      Prinsip Pembelajaran
+                    </label>
+                    <div class="d-flex flex-wrap gap-3">
+                      ${['Berkesadaran','Bermakna','Menggembirakan'].map(p => `
+                        <div class="form-check">
+                          <input class="form-check-input prinsipCheck" type="checkbox" value="${p}">
+                          <label class="form-check-label">${p}</label>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                      Siswa Tidak Masuk
+                    </label>
+                    <textarea id="siswaTidakMasuk" class="form-control shadow-sm" rows="4"></textarea>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                      Keterangan Tambahan
+                    </label>
+                    <textarea id="ketGuru" class="form-control shadow-sm" rows="4"></textarea>
+                  </div>
+
+                  <!-- FOTO -->
+                  <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+
+                      <label class="form-label fw-semibold text-primary">
+                        <i class="bi bi-camera-fill me-2"></i>
+                        Dokumentasi Pembelajaran
+                      </label>
+
+                      <div class="mb-3">
+
+                        <div class="form-check">
+                          <input
+                            class="form-check-input"
+                            type="radio"
+                            name="jenisDokumentasi"
+                            id="radioUpload"
+                            value="upload"
+                            checked
+                            onclick="gantiSumberDokumentasi()">
+                          <label class="form-check-label">
+                            Upload dari Galeri
+                          </label>
+                        </div>
+
+                        <div class="form-check">
+                          <input
+                            class="form-check-input"
+                            type="radio"
+                            name="jenisDokumentasi"
+                            id="radioLink"
+                            value="link"
+                            onclick="gantiSumberDokumentasi()">
+                          <label class="form-check-label">
+                            Gunakan Link Google Drive
+                          </label>
+                        </div>
+
+                      </div>
+
+                      <div class="row g-3">
+
+                        <div class="col-12" id="uploadArea">
+                          <label class="btn btn-outline-primary btn-lg w-100">
+                            <i class="bi bi-image-fill me-2"></i>
+                            Pilih Foto
+                            <input
+                              type="file"
+                              id="fotoGuru"
+                              accept="image/*"
+                              class="d-none"
+                              onchange="previewFotoAgenda(event)">
+                          </label>
+                        </div>
+
+                        <div class="col-12 d-none" id="linkArea">
+                          <label class="form-label fw-semibold">
+                            Link Google Drive
+                          </label>
+                          <input
+                            type="url"
+                            id="linkFotoGuru"
+                            class="form-control"
+                            placeholder="Paste Link Google Drive dari Foto">
+                        </div>
+
+                      </div>
+
+                      <div class="text-center mt-4">
+                        <img
+                          id="previewAgenda"
+                          src="https://via.placeholder.com/300x220?text=Preview+Dokumentasi"
+                          class="img-fluid shadow-sm rounded-4 object-fit-cover"
+                          alt="Preview dokumentasi">
+                      </div>
+
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          <hr class="my-4">
+
+          <button
+            id="btnSimpanAgenda"
+            class="btn btn-primary btn-lg w-100 shadow-sm py-3"
+            onclick="simpanAgendaGuruForm()">
+
+            <span
+              id="spinnerAgenda"
+              class="spinner-border spinner-border-sm me-2 d-none">
+            </span>
+
+            <i id="iconAgenda" class="bi bi-save me-2"></i>
+
+            <span id="textAgenda">
+              Simpan Satria Mengajar
+            </span>
+
+          </button>
+
+          <div id="loadingAgenda" class="text-center py-5 d-none">
+            <div class="spinner-grow text-primary" role="status"></div>
+            <div class="mt-4 fw-bold text-primary fs-5">
+              Menyimpan Agenda Satria Mengajar...
+            </div>
+            <div class="small text-muted">
+              Mohon tunggu beberapa saat
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  `;
+
+  agendaSetToday();
+  loadAgendaMultiSchool();
+}
+
+/* =========================================================
+   INIT DATE
+   ========================================================= */
+function agendaSetToday() {
+  const el = document.getElementById('tanggalAgenda');
+  if (!el || el.value) return;
+
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  el.value = `${yyyy}-${mm}-${dd}`;
+}
+
+/* =========================================================
+   LOAD MULTI SCHOOL
+   ========================================================= */
+function loadAgendaMultiSchool() {
+
+  setAgendaAlert('', '');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+
+      if (!result || !result.success) {
+        setAgendaAlert(
+          result && result.message
+            ? result.message
+            : 'Gagal memuat School Context / Guru.',
+          'danger'
+        );
+        return;
+      }
+
+      agendaSchoolContext = result.school || {};
+      agendaUserContext = result.user || {};
+      dataGuruAgenda = Array.isArray(result.data) ? result.data : [];
+
+      const schoolEl = document.getElementById('agendaSchoolName');
+      if (schoolEl) {
+        schoolEl.textContent =
+          (agendaSchoolContext.namaSekolah || 'Sekolah aktif') +
+          (agendaSchoolContext.npsn ? ' • NPSN ' + agendaSchoolContext.npsn : '');
+      }
+
+      renderGuruAgenda(dataGuruAgenda, agendaUserContext);
+      loadKelasAgenda();
+    })
+    .withFailureHandler(function(err) {
+      setAgendaAlert(
+        'Gagal memuat data guru: ' + (err && err.message ? err.message : err),
+        'danger'
+      );
+    })
+    .getGuruAgenda();
+}
+
+/* =========================================================
+   LOAD KELAS
+   ========================================================= */
+function loadKelasAgenda() {
+
+  const select = document.getElementById('kelasAgenda');
+  if (!select) return;
+
+  select.disabled = true;
+  select.innerHTML = '<option value="">Memuat kelas...</option>';
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+
+      if (!result || !result.success) {
+        select.innerHTML = '<option value="">Kelas tidak tersedia</option>';
+        return;
+      }
+
+      const kelas = Array.isArray(result.kelas) ? result.kelas : [];
+
+      if (!kelas.length) {
+        select.innerHTML = '<option value="">Belum ada data kelas</option>';
+        select.disabled = true;
+        setAgendaAlert(
+          'Sheet Kelas sekolah aktif belum memiliki daftar kelas.',
+          'warning'
+        );
+        return;
+      }
+
+      select.innerHTML = '<option value="">-- Pilih Kelas --</option>';
+
+      kelas.forEach(function(namaKelas) {
+        const option = document.createElement('option');
+        option.value = namaKelas;
+        option.textContent = namaKelas;
+        select.appendChild(option);
+      });
+
+      select.disabled = false;
+    })
+    .withFailureHandler(function(err) {
+      select.innerHTML = '<option value="">Gagal memuat kelas</option>';
+      select.disabled = true;
+      setAgendaAlert(
+        'Gagal memuat kelas: ' + (err && err.message ? err.message : err),
+        'danger'
+      );
+    })
+    .getKelasAgendaGuru();
+}
+
+/* =========================================================
+   RENDER GURU
+   GURU: hanya guru login.
+   ADMIN/PENGAWAS: seluruh guru sekolah aktif.
+   ========================================================= */
+function renderGuruAgenda(data, user) {
+
+  const select = document.getElementById('guru');
+  if (!select) return;
+
+  const role = String(user && user.role || '').trim().toUpperCase();
+  const userNip = String(user && user.nip || '').trim();
+  const userId = String(user && user.userId || '').trim();
+  const userEmail = String(user && user.email || '').trim().toLowerCase();
+  const userNama = String(user && user.nama || '').trim().toLowerCase();
+
+  const isGuru =
+    role === 'GURU' ||
+    role === 'GURU_MAPEL' ||
+    role === 'GURU_WALI' ||
+    role === 'GURU_PIKET';
+
+  let daftar = data || [];
+
+  if (isGuru) {
+    daftar = daftar.filter(function(g) {
+      const byNip = userNip && String(g.nip || '').trim() === userNip;
+      const byEmail = userEmail && String(g.email || '').trim().toLowerCase() === userEmail;
+      const byNama = userNama && String(g.nama || '').trim().toLowerCase() === userNama;
+      return byNip || byEmail || byNama;
+    });
+  }
+
+  if (!daftar.length) {
+    select.innerHTML =
+      '<option value="">Data guru login tidak ditemukan</option>';
+    select.disabled = true;
+    return;
+  }
+
+  select.disabled = false;
+  select.innerHTML = isGuru
+    ? ''
+    : '<option value="">-- Pilih Guru --</option>';
+
+  daftar.forEach(function(g) {
+    const option = document.createElement('option');
+    option.value = g.nip || '';
+    option.textContent = g.nama || g.nip || '-';
+    option.dataset.mapel = g.mapel || '';
+    option.dataset.email = g.email || '';
+    select.appendChild(option);
+  });
+
+  select.onchange = function() {
+    const selected = daftar.find(function(g) {
+      return String(g.nip || '') === String(select.value || '');
+    });
+    setGuruAgenda(selected);
+  };
+
+  setGuruAgenda(daftar[0]);
+}
+
+function setGuruAgenda(guru) {
+  document.getElementById('nip').value = guru ? guru.nip || '' : '';
+  document.getElementById('mapel').value = guru ? guru.mapel || '' : '';
+}
+
+/* =========================================================
+   PREVIEW FOTO
+   ========================================================= */
+function previewFotoAgenda(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  document.getElementById('previewAgenda').src =
+    URL.createObjectURL(file);
+}
+
+function gantiSumberDokumentasi() {
+  const upload = document.getElementById('radioUpload').checked;
+  const uploadArea = document.getElementById('uploadArea');
+  const linkArea = document.getElementById('linkArea');
+
+  uploadArea.classList.toggle('d-none', !upload);
+  linkArea.classList.toggle('d-none', upload);
+}
+
+/* =========================================================
+   KOMPRES FOTO
+   ========================================================= */
+function compressImage(file) {
+  return new Promise(function(resolve, reject) {
+
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+      const img = new Image();
+
+      img.onload = function() {
+
+        const maxWidth = 1280;
+        const maxHeight = 1280;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height && width > maxWidth) {
+          height *= maxWidth / width;
+          width = maxWidth;
+        }
+
+        if (height >= width && height > maxHeight) {
+          width *= maxHeight / height;
+          height = maxHeight;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(width);
+        canvas.height = Math.round(height);
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob(function(blob) {
+          if (!blob) {
+            reject(new Error('Gagal mengompres foto.'));
+            return;
+          }
+
+          const fr = new FileReader();
+          fr.onload = function() {
+            resolve(fr.result);
+          };
+          fr.onerror = reject;
+          fr.readAsDataURL(blob);
+        }, 'image/jpeg', 0.6);
+      };
+
+      img.onerror = function() {
+        reject(new Error('File foto tidak dapat dibaca.'));
+      };
+
+      img.src = e.target.result;
+    };
+
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/* =========================================================
+   LOADING
+   ========================================================= */
+function showLoadingAgenda() {
+  const btn = document.getElementById('btnSimpanAgenda');
+  if (btn) btn.disabled = true;
+
+  document.getElementById('spinnerAgenda').classList.remove('d-none');
+  document.getElementById('iconAgenda').classList.add('d-none');
+  document.getElementById('textAgenda').textContent = 'Menyimpan data...';
+  document.getElementById('loadingAgenda').classList.remove('d-none');
+}
+
+function hideLoadingAgenda() {
+  const btn = document.getElementById('btnSimpanAgenda');
+  if (btn) btn.disabled = false;
+
+  document.getElementById('spinnerAgenda').classList.add('d-none');
+  document.getElementById('iconAgenda').classList.remove('d-none');
+  document.getElementById('textAgenda').textContent = 'Simpan Satria Mengajar';
+  document.getElementById('loadingAgenda').classList.add('d-none');
+}
+
+/* =========================================================
+   ALERT
+   ========================================================= */
+function setAgendaAlert(message, type) {
+  const el = document.getElementById('agendaAlert');
+  if (!el) return;
+
+  if (!message) {
+    el.className = 'alert d-none small';
+    el.textContent = '';
+    return;
+  }
+
+  el.className = 'alert alert-' + (type || 'info') + ' small';
+  el.textContent = message;
+}
+
+/* =========================================================
+   RESET
+   ========================================================= */
+function resetAgendaGuru() {
+  document.getElementById('tanggalAgenda').value = '';
+  document.getElementById('tujuan').value = '';
+  document.getElementById('materi').value = '';
+  document.getElementById('siswaTidakMasuk').value = '';
+  document.getElementById('ketGuru').value = '';
+  document.getElementById('fotoGuru').value = '';
+  document.getElementById('linkFotoGuru').value = '';
+
+  document.getElementById('previewAgenda').src =
+    'https://via.placeholder.com/300x220?text=Preview+Dokumentasi';
+
+  document.querySelectorAll(
+    '.sesiCheck,.dplCheck,.pmCheck,.prinsipCheck'
+  ).forEach(function(el) {
+    el.checked = false;
+  });
+
+  agendaSetToday();
+}
+
+/* =========================================================
+   SIMPAN AGENDA
+   ========================================================= */
+function simpanAgendaGuruForm() {
+
+  const guruSelect = document.getElementById('guru');
+  const guru = guruSelect ? guruSelect.value : '';
+  const nip = document.getElementById('nip').value.trim();
+  const mapel = document.getElementById('mapel').value.trim();
+  const tanggal = document.getElementById('tanggalAgenda').value;
+  const kelas = document.getElementById('kelasAgenda').value;
+  const tujuan = document.getElementById('tujuan').value.trim();
+  const materi = document.getElementById('materi').value.trim();
+  const siswaTidakMasuk = document.getElementById('siswaTidakMasuk').value.trim();
+  const keterangan = document.getElementById('ketGuru').value.trim();
+
+  const sesi = Array.from(
+    document.querySelectorAll('.sesiCheck:checked')
+  ).map(function(e) { return e.value; });
+
+  const dpl = Array.from(
+    document.querySelectorAll('.dplCheck:checked')
+  ).map(function(e) { return e.value; });
+
+  const pm = Array.from(
+    document.querySelectorAll('.pmCheck:checked')
+  ).map(function(e) { return e.value; });
+
+  const prinsip = Array.from(
+    document.querySelectorAll('.prinsipCheck:checked')
+  ).map(function(e) { return e.value; });
+
+  const pakaiUpload = document.getElementById('radioUpload').checked;
+  const linkFoto = document.getElementById('linkFotoGuru').value.trim();
+  const file = document.getElementById('fotoGuru').files[0];
+
+  /* VALIDASI */
+  if (!guru) return setAgendaAlert('Guru wajib dipilih.', 'warning');
+  if (!nip) return setAgendaAlert('NIP guru tidak tersedia.', 'warning');
+  if (!tanggal) return setAgendaAlert('Tanggal wajib diisi.', 'warning');
+  if (!kelas) return setAgendaAlert('Kelas wajib dipilih.', 'warning');
+  if (!sesi.length) return setAgendaAlert('Pilih minimal 1 jam.', 'warning');
+  if (!tujuan) return setAgendaAlert('Tujuan Pembelajaran wajib diisi.', 'warning');
+  if (!materi) return setAgendaAlert('Materi Pembelajaran wajib diisi.', 'warning');
+  if (!dpl.length) return setAgendaAlert('Pilih minimal satu Dimensi Profil Lulusan.', 'warning');
+  if (!pm.length) return setAgendaAlert('Pilih minimal satu Pengalaman Belajar.', 'warning');
+  if (!prinsip.length) return setAgendaAlert('Pilih minimal satu Prinsip Pembelajaran.', 'warning');
+  if (!keterangan) return setAgendaAlert('Keterangan wajib diisi.', 'warning');
+
+  if (pakaiUpload) {
+    if (!file) return setAgendaAlert('Silakan pilih foto.', 'warning');
+    if (file.size > 2 * 1024 * 1024) {
+      return setAgendaAlert('Ukuran foto maksimal 2 MB.', 'warning');
+    }
+  } else if (!linkFoto) {
+    return setAgendaAlert('Masukkan link Google Drive.', 'warning');
+  }
+
+  const selectedOption = guruSelect.options[guruSelect.selectedIndex];
+
+  const dataObj = {
+    nip: nip,
+    namaGuru: selectedOption ? selectedOption.text.trim() : '',
+    mapel: mapel,
+    tanggal: tanggal,
+    sesi: sesi.join(', '),
+    kelas: kelas,
+
+    /* NAMA FIELD HARUS SAMA DENGAN HEADER TRX */
+    tujuanPembelajaran: tujuan,
+    materiPembelajaran: materi,
+    dpl: dpl.join(', '),
+    pengalamanBelajar: pm.join(', '),
+    prinsipPembelajaran: prinsip.join(', '),
+    rekapMuridTidakIkut: siswaTidakMasuk,
+    keterangan: keterangan,
+    buktiFisik: ''
+  };
+
+  setAgendaAlert('', '');
+  showLoadingAgenda();
+
+  /* LINK */
+  if (!pakaiUpload) {
+    dataObj.buktiFisik = linkFoto;
+    prosesSimpanAgenda(dataObj);
+    return;
+  }
+
+  /* UPLOAD */
+  compressImage(file)
+    .then(function(base64) {
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+
+          if (!result || !result.success) {
+            hideLoadingAgenda();
+            setAgendaAlert(
+              result && result.message
+                ? result.message
+                : 'Upload foto gagal.',
+              'danger'
+            );
+            return;
+          }
+
+          dataObj.buktiFisik = result.url || '';
+          prosesSimpanAgenda(dataObj);
+        })
+        .withFailureHandler(function(err) {
+          hideLoadingAgenda();
+          setAgendaAlert(
+            'Upload foto gagal: ' + (err && err.message ? err.message : err),
+            'danger'
+          );
+        })
+        .uploadFileAgenda(
+          base64,
+          'Agenda_' + Date.now() + '.jpg'
+        );
+    })
+    .catch(function(err) {
+      hideLoadingAgenda();
+      setAgendaAlert(
+        'Gagal memproses foto: ' + (err && err.message ? err.message : err),
+        'danger'
+      );
+    });
+}
+
+/* =========================================================
+   SIMPAN KE SERVER
+   ========================================================= */
+function prosesSimpanAgenda(dataObj) {
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+
+      hideLoadingAgenda();
+
+      if (!result || !result.success) {
+        setAgendaAlert(
+          result && result.message
+            ? result.message
+            : 'Agenda gagal disimpan.',
+          'danger'
+        );
+        return;
+      }
+
+      setAgendaAlert(
+        result.message +
+        ' Transaction ID: ' +
+        result.transactionId,
+        'success'
+      );
+
+      resetAgendaGuru();
+    })
+    .withFailureHandler(function(err) {
+      hideLoadingAgenda();
+      setAgendaAlert(
+        'Gagal menyimpan agenda: ' + (err && err.message ? err.message : err),
+        'danger'
+      );
+    })
+    .simpanAgendaGuru(dataObj);
+}
+
+</script>

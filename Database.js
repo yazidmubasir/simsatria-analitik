@@ -74,6 +74,9 @@ function initializeSchoolTransactionSheets() {
       "PRINSIP_PEMBELAJARAN",
       "REKAP_MURID_TIDAK_IKUT",
       "BUKTI_FISIK",
+      "NAMA_GURU", 
+      "MAPEL",
+      "KETERANGAN"
     ],
     TRX_SBI: [
       "INDIKATOR",
@@ -169,6 +172,9 @@ function setupDatabaseSekolahSaya() {
       "PRINSIP_PEMBELAJARAN",
       "REKAP_MURID_TIDAK_IKUT",
       "BUKTI_FISIK",
+      "NAMA_GURU", 
+      "MAPEL",
+      "KETERANGAN"
     ],
     TRX_SBI: [
       "INDIKATOR",

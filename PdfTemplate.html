@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 10mm 9mm 12mm 9mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      color: #222;
+      font-size: 10px;
+    }
+
+    /* KOP SEKOLAH */
+    .header {
+      width: 100%;
+      display: table;
+      border-bottom: 3px double #000;
+      padding-bottom: 8px;
+      margin-bottom: 15px;
+    }
+
+    .header-row {
+      display: table-row;
+    }
+
+    .logo {
+      display: table-cell;
+      width: 80px;
+      vertical-align: middle;
+      text-align: center;
+    }
+
+    .logo img {
+      width: 65px;
+      height: 65px;
+      object-fit: contain;
+    }
+
+    .judul-kop {
+      display: table-cell;
+      vertical-align: middle;
+      text-align: center;
+    }
+
+    .judul-kop h2 {
+      margin: 0;
+      font-size: 18px;
+      text-transform: uppercase;
+    }
+
+    .judul-kop h3 {
+      margin: 2px 0;
+      font-size: 15px;
+      text-transform: uppercase;
+    }
+
+    .judul-kop p {
+      margin: 1px 0;
+      font-size: 10px;
+      color: #333;
+    }
+
+    /* JUDUL LAPORAN */
+    .report-title {
+      margin-top: 10px;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .report-title h2 {
+      margin: 0;
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .report-title p {
+      margin-top: 4px;
+      font-size: 11px;
+      font-weight: bold;
+      color: #444;
+    }
+
+    /* IDENTITAS */
+    .identitas {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+    }
+
+    .identitas td {
+      padding: 3px 0;
+      vertical-align: top;
+      font-size: 10px;
+    }
+
+    .identitas .label {
+      width: 95px;
+      font-weight: bold;
+    }
+
+    /* TABLE DATA */
+    table.data {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8px;
+      table-layout: fixed;
+    }
+
+    table.data th {
+      background: #2e7d32;
+      color: white;
+      border: 1px solid #000;
+      padding: 5px 3px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    table.data td {
+      border: 1px solid #000;
+      padding: 4px 3px;
+      vertical-align: top;
+      word-wrap: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    .center {
+      text-align: center;
+      vertical-align: middle !important;
+    }
+
+    .badge-info {
+      display: block;
+      font-size: 7.5px;
+      line-height: 1.25;
+      color: #333;
+      margin-bottom: 1px;
+    }
+
+    /* FOOTER & TTD */
+    .ttd-container {
+      margin-top: 25px;
+      width: 100%;
+      page-break-inside: avoid;
+    }
+
+    .ttd-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .ttd-table td {
+      text-align: center;
+      font-size: 10px;
+      vertical-align: top;
+      width: 50%;
+    }
+
+    .nama-ttd {
+      margin-top: 55px;
+      font-weight: bold;
+      text-decoration: underline;
+    }
+
+    .nip-ttd {
+      margin-top: 3px;
+    }
+
+    .footer {
+      position: fixed;
+      bottom: 2mm;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 8px;
+      color: #777;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="header">
+    <div class="header-row">
+
+      <div class="logo">
+        {{LOGO_HTML}}
+      </div>
+
+      <div class="judul-kop">
+        <h2>{{NAMA_SEKOLAH}}</h2>
+        <h3>SIM SATRIA</h3>
+        <p>NPSN: {{NPSN}}</p>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="report-title">
+    <h2>LAPORAN AGENDA MENGAJAR GURU</h2>
+    <p>
+      Periode {{PERIODE_AWAL}} s.d. {{PERIODE_AKHIR}}
+    </p>
+  </div>
+
+  <table class="identitas">
+    <tr>
+      <td class="label">Nama Guru</td>
+      <td>: {{NAMA_GURU}}</td>
+    </tr>
+    <tr>
+      <td class="label">NIP</td>
+      <td>: {{NIP_GURU}}</td>
+    </tr>
+  </table>
+
+  <table class="data">
+
+    <thead>
+      <tr>
+        <th style="width:4%;">No</th>
+        <th style="width:8%;">Tanggal</th>
+        <th style="width:6%;">Sesi</th>
+        <th style="width:7%;">Kelas</th>
+        <th style="width:20%;">Tujuan Pembelajaran</th>
+        <th style="width:23%;">DPL / Pengalaman / Prinsip</th>
+        <th style="width:14%;">Murid Tidak Ikut</th>
+        <th style="width:18%;">Materi Pembelajaran</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {{TABEL_ROWS}}
+    </tbody>
+
+  </table>
+
+  <div class="ttd-container">
+
+    <table class="ttd-table">
+      <tr>
+
+        <td>
+          Mengetahui,<br>
+          Kepala Sekolah
+
+          <div class="nama-ttd">
+            {{NAMA_KEPSEK}}
+          </div>
+
+          <div class="nip-ttd">
+            NIP. {{NIP_KEPSEK}}
+          </div>
+        </td>
+
+        <td>
+          Guru
+
+          <div class="nama-ttd">
+            {{NAMA_GURU}}
+          </div>
+
+          <div class="nip-ttd">
+            NIP. {{NIP_GURU}}
+          </div>
+        </td>
+
+      </tr>
+    </table>
+
+  </div>
+
+  <div class="footer">
+    Dicetak melalui SIM SATRIA — {{TANGGAL_CETAK}}
+  </div>
+
+</body>
+</html>
