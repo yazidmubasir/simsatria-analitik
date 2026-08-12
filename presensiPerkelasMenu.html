@@ -21,49 +21,29 @@
           return;
         }
 
-        // Render HTML terlebih dahulu.
+        // HTML harus tersedia terlebih dahulu sebelum modul JS dijalankan.
         content.innerHTML = view.html;
 
-        // Jalankan JS modul setelah elemen HTML tersedia.
-        if (view.js && view.js.trim()) {
-          const oldScript = document.getElementById('ppRuntimeScript');
-          if (oldScript) oldScript.remove();
-
-          const script = document.createElement('script');
-          script.id = 'ppRuntimeScript';
-          script.type = 'text/javascript';
-          script.textContent = view.js;
-          document.body.appendChild(script);
-
-          // PENTING: script yang di-inject hanya mendefinisikan fungsi.
-          // PP_init() harus dipanggil setelah HTML dan JS tersedia.
-          setTimeout(function() {
-            try {
-              if (typeof PP_init === 'function') {
-                PP_init();
-              } else {
-                throw new Error('PP_init() tidak ditemukan pada modul Presensi Per Kelas.');
-              }
-            } catch (e) {
-              console.error('PP_INIT ERROR:', e);
-              const box = document.getElementById('ppTableContainer');
-              if (box) {
-                box.innerHTML = `
-                  <div class="alert alert-danger mx-3 my-3 small">
-                    <strong>Presensi gagal diinisialisasi.</strong><br>
-                    ${String(e && e.message ? e.message : e)}
-                  </div>
-                `;
-              }
-            }
-          }, 0);
-        } else {
+        if (!view.js || !view.js.trim()) {
           content.innerHTML = `
             <div class="alert alert-danger">
               Modul JavaScript Presensi Per Kelas tidak ditemukan.
             </div>
           `;
+          return;
         }
+
+        // Hapus runtime lama agar menu dapat dibuka berkali-kali tanpa duplikasi.
+        const oldScript = document.getElementById('ppRuntimeScript');
+        if (oldScript) oldScript.remove();
+
+        const script = document.createElement('script');
+        script.id = 'ppRuntimeScript';
+        script.type = 'text/javascript';
+        script.text = view.js;
+        document.body.appendChild(script);
+
+        // PP_init() dipanggil dari dalam view.js setelah script dieksekusi.
       })
       .withFailureHandler(function(error) {
         const message = error && error.message

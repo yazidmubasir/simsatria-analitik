@@ -65,7 +65,22 @@ function getKoneksiView() {
 function getPresensiPerkelasView() {
   const html = HtmlService.createHtmlOutputFromFile("presensiPerkelas").getContent();
   let js = HtmlService.createHtmlOutputFromFile("presensiPerkelas_js").getContent();
-  js = js.replace(/\.getKelasPresensiPerkelas\(\)/g, ".securePresensiLoad()").replace(/\.getPresensiPerkelasData\(/g, ".securePresensiGetData(").replace(/\.simpanPresensiPerkelas\(/g, ".securePresensiSave(");
+
+  // Buang wrapper <script> karena JS akan diinjeksi sebagai elemen script.
+  js = js.replace(/^\s*<script[^>]*>/i, "").replace(/<\/script>\s*$/i, "");
+
+  // Gunakan endpoint security baru tanpa mengubah frontend lama.
+  js = js
+    .replace(/\.getKelasPresensiPerkelas\(\)/g, ".securePresensiLoad()")
+    .replace(/\.getPresensiPerkelasData\(/g, ".securePresensiGetData(")
+    .replace(/\.simpanPresensiPerkelas\(/g, ".securePresensiSave(");
+
+  // KRITIS: PP_init() harus dipanggil DI DALAM script yang diinjeksi.
+  // Function declaration dari script dinamis tidak selalu tersedia pada
+  // lexical scope fungsi menu, sehingga memanggil PP_init() dari menu
+  // menyebabkan "PP_init() tidak ditemukan".
+  js += '\n;setTimeout(function(){try{if(typeof PP_init === "function"){PP_init();}else{console.error("PP_init tidak ditemukan pada modul Presensi Per Kelas.");}}catch(e){console.error("PP_init ERROR:",e);}},0);\n';
+
   return { success: true, html: html, js: js };
 }
 
