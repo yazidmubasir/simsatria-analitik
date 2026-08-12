@@ -1,8 +1,9 @@
 /**
  * SIM SATRIA - PRESENSI PRINT ENGINE
  *
- * All public print/read endpoints are protected by VIEW_PRESENSI.
- * Guru tidak membaca Spreadsheet MASTER hanya untuk mencetak PDF.
+ * Semua PDF presensi WAJIB disimpan ke folder PRESENSI milik sekolah aktif.
+ * Tidak ada fallback ke My Drive guru.
+ * Guru tidak membaca Spreadsheet MASTER.
  */
 
 function getKelasUntukCetakPresensi(tanggalAwal, tanggalAkhir) {
@@ -115,7 +116,6 @@ function cetakPresensiPerkelas(tanggalAwal, tanggalAkhir, kelas) {
     total.lainnya += item.lainnya;
   });
 
-  // PENTING: jangan membaca Spreadsheet MASTER dari akun guru.
   const kepalaSekolah = getKepalaSekolahForPrint_(context);
   const template = HtmlService.createTemplateFromFile("presensiPerkelasPrintTemplate");
   template.data = {
@@ -136,13 +136,15 @@ function cetakPresensiPerkelas(tanggalAwal, tanggalAkhir, kelas) {
   const fileName = "Presensi_" + safeKelas + "_" + tanggalAwal + "_" + tanggalAkhir + "_" + uniqueId + ".pdf";
   pdfBlob.setName(fileName);
 
-  // Folder sekolah dicoba terlebih dahulu. Jika guru tidak mempunyai akses,
-  // otomatis dibuat pada My Drive guru sehingga tombol CETAK tetap berfungsi.
+  // WAJIB: simpan pada folder PRESENSI milik sekolah aktif.
+  // Tidak boleh fallback ke My Drive guru karena akan membuat dokumen
+  // sekolah tersebar pada Drive pribadi masing-masing guru.
   const fileResult = createPresensiPdfFile_(context, pdfBlob);
   const file = fileResult.file;
 
   try {
     writePresensiLog_(spreadsheetId, {
+      npsp: npsn,
       npsn: npsn,
       userId: context.userId || "",
       email: context.email || "",
@@ -163,8 +165,9 @@ function cetakPresensiPerkelas(tanggalAwal, tanggalAkhir, kelas) {
     fileId: file.getId(),
     fileName: file.getName(),
     folderName: fileResult.folderName,
+    folderId: fileResult.folderId,
     url: file.getUrl(),
-    storage: fileResult.storage,
+    storage: "SCHOOL_DRIVE",
     kelas: kelas,
     tanggalAwal: tanggalAwal,
     tanggalAkhir: tanggalAkhir,
@@ -173,25 +176,67 @@ function cetakPresensiPerkelas(tanggalAwal, tanggalAkhir, kelas) {
   };
 }
 
+/**
+ * Simpan PDF presensi secara deterministik ke:
+ *
+ *   Drive Sekolah
+ *      └── PRESENSI
+ *
+ * Tidak ada fallback ke My Drive.
+ */
 function createPresensiPdfFile_(context, pdfBlob) {
-  const school = context.school || {};
+  const school = context && context.school ? context.school : {};
   const rootFolderId = String(
-    school.driveRootFolderId || school.driveFolderId || context.driveRootFolderId || context.driveFolderId || ""
+    school.driveRootFolderId ||
+    school.driveFolderId ||
+    context.driveRootFolderId ||
+    context.driveFolderId ||
+    ""
   ).trim();
 
-  if (rootFolderId) {
-    try {
-      const root = DriveApp.getFolderById(rootFolderId);
-      const folders = root.getFoldersByName("PRESENSI");
-      const folder = folders.hasNext() ? folders.next() : root.createFolder("PRESENSI");
-      return { file: folder.createFile(pdfBlob), folderName: folder.getName(), storage: "SCHOOL_DRIVE" };
-    } catch (error) {
-      console.warn("[PRESENSI PRINT] Folder sekolah tidak dapat diakses. Fallback ke My Drive user.", error);
-    }
+  if (!rootFolderId) {
+    throw new Error(
+      "Folder Drive sekolah belum dikonfigurasi. PDF tidak dibuat agar tidak tersimpan di My Drive guru."
+    );
   }
 
-  const file = DriveApp.createFile(pdfBlob);
-  return { file: file, folderName: "My Drive", storage: "USER_MY_DRIVE" };
+  let root;
+  try {
+    root = DriveApp.getFolderById(rootFolderId);
+  } catch (e) {
+    throw new Error(
+      "Folder Drive sekolah tidak dapat diakses oleh akun ini. Pastikan guru sudah mendapat permission ke folder sekolah. Detail: " +
+      (e.message || String(e))
+    );
+  }
+
+  let folder;
+  try {
+    const folders = root.getFoldersByName("PRESENSI");
+    folder = folders.hasNext() ? folders.next() : root.createFolder("PRESENSI");
+  } catch (e) {
+    throw new Error(
+      "Folder PRESENSI sekolah tidak dapat diakses/dibuat. Pastikan guru memiliki akses Editor ke folder sekolah. Detail: " +
+      (e.message || String(e))
+    );
+  }
+
+  let file;
+  try {
+    file = folder.createFile(pdfBlob);
+  } catch (e) {
+    throw new Error(
+      "PDF gagal disimpan ke folder PRESENSI sekolah. Tidak ada fallback ke My Drive. Detail: " +
+      (e.message || String(e))
+    );
+  }
+
+  return {
+    file: file,
+    folderId: folder.getId(),
+    folderName: folder.getName(),
+    storage: "SCHOOL_DRIVE",
+  };
 }
 
 function getKepalaSekolahForPrint_(context) {

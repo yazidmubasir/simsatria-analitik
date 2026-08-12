@@ -1,145 +1,93 @@
 <script>
 (function(){
-  window.mpEscape = function(v){
-    return String(v == null ? '' : v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[c];});
-  };
+  window.mpEscape = function(v){return String(v==null?'':v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[c];});};
 
-  window.mpBukaForm = function(user){
-    document.getElementById('mpFormCard').style.display='block';
+  window.mpBukaDriveSync=function(){
+    document.getElementById('mpDriveSyncCard').style.display='block';
     document.getElementById('mpSyncCard').style.display='none';
-    document.getElementById('mpUserId').value=user && user.userId || '';
-    document.getElementById('mpEmail').value=user && user.email || '';
-    document.getElementById('mpNip').value=user && user.nip || '';
-    document.getElementById('mpNama').value=user && user.nama || '';
-    document.getElementById('mpRole').value=user && user.role || 'GURU';
-    document.getElementById('mpStatus').value=user && user.status || 'ACTIVE';
-    document.getElementById('mpEmail').readOnly=!!user;
-    document.getElementById('mpSaveText').textContent=user?'Perbarui':'Simpan';
+    document.getElementById('mpFormCard').style.display='none';
+    document.getElementById('mpDriveResult').innerHTML='';
+    google.script.run.withSuccessHandler(function(r){
+      if(!r||!r.success){mpDriveResult('Gagal membaca konfigurasi Drive.','danger');return;}
+      mpRenderDriveInfo(r);
+    }).withFailureHandler(function(e){mpDriveResult(e.message||String(e),'danger');}).getSchoolContextInfo();
     window.scrollTo({top:0,behavior:'smooth'});
   };
 
-  window.mpTutupForm = function(){
-    document.getElementById('mpFormCard').style.display='none';
-    document.getElementById('mpForm').reset();
-    document.getElementById('mpEmail').readOnly=false;
-    document.getElementById('mpSaveText').textContent='Simpan';
+  window.mpTutupDriveSync=function(){document.getElementById('mpDriveSyncCard').style.display='none';};
+
+  window.mpRenderDriveInfo=function(r){
+    document.getElementById('mpDriveRootName').textContent=r.sekolah||'Drive Sekolah';
+    document.getElementById('mpDriveRootId').textContent='ID: '+(r.driveFolderId||'-');
+    document.getElementById('mpDrivePresensiName').textContent='PRESENSI';
+    document.getElementById('mpDrivePresensiId').textContent='Folder dibuat/dipakai otomatis oleh sistem';
   };
 
-  window.mpBukaSinkronisasi = function(){
-    document.getElementById('mpSyncCard').style.display='block';
-    document.getElementById('mpFormCard').style.display='none';
-    window.scrollTo({top:0,behavior:'smooth'});
-    document.getElementById('mpEmailList').focus();
+  window.mpDriveLoading=function(on,audit){
+    var btn=document.getElementById(audit?'mpDriveAuditBtn':'mpDriveSyncBtn');
+    var spin=document.getElementById(audit?'mpDriveAuditSpin':'mpDriveSyncSpin');
+    if(btn)btn.disabled=on;if(spin)spin.classList.toggle('d-none',!on);
+    if(!audit){var auditBtn=document.getElementById('mpDriveAuditBtn');if(auditBtn)auditBtn.disabled=on;}
+    else {var syncBtn=document.getElementById('mpDriveSyncBtn');if(syncBtn)syncBtn.disabled=on;}
   };
 
-  window.mpTutupSinkronisasi = function(){
-    document.getElementById('mpSyncCard').style.display='none';
+  window.mpDriveResult=function(message,type){
+    document.getElementById('mpDriveResult').innerHTML='<div class="alert alert-'+(type||'info')+' small mb-0">'+mpEscape(message)+'</div>';
   };
 
-  window.mpAlert = function(message,type){
-    document.getElementById('mpAlert').innerHTML='<div class="alert alert-'+(type||'info')+' alert-dismissible fade show small">'+mpEscape(message)+'<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+  window.mpRenderDriveSync=function(r){
+    var failed=r.failed||[], granted=r.granted||[], revoked=r.revoked||[];
+    var ok=failed.length===0;
+    var html='<div class="alert alert-'+(ok?'success':'warning')+' small">'+mpEscape(r.message||'Sinkronisasi Drive selesai.')+'</div>';
+    html+='<div class="row g-2 small">';
+    html+='<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="text-muted">Aktif</div><strong>'+(r.activeTeachers||0)+'</strong></div></div>';
+    html+='<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="text-muted">Diberi akses</div><strong>'+granted.length+'</strong></div></div>';
+    html+='<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="text-muted">Dicabut</div><strong>'+revoked.length+'</strong></div></div>';
+    html+='<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="text-muted">Gagal</div><strong>'+failed.length+'</strong></div></div></div>';
+    html+='<div class="mt-2 text-muted">Root: <code>'+mpEscape(r.folderId||'-')+'</code><br>PRESENSI: <code>'+mpEscape(r.presensiFolderId||'-')+'</code></div>';
+    if(failed.length){html+='<div class="alert alert-danger mt-2 mb-0 small"><strong>Detail gagal:</strong><ul class="mb-0">'+failed.map(function(x){return '<li>'+mpEscape(x.email||x.action||'')+': '+mpEscape(x.error||'Tidak diketahui')+'</li>';}).join('')+'</ul></div>';}
+    document.getElementById('mpDriveResult').innerHTML=html;
   };
 
-  window.mpLoading = function(on){
-    document.getElementById('mpSaveBtn').disabled=on;
-    document.getElementById('mpSaveSpin').classList.toggle('d-none',!on);
+  window.mpSinkronkanDrive=function(){
+    if(!confirm('Sinkronkan permission Drive untuk seluruh GURU/WALI_KELAS aktif?'))return;
+    mpDriveLoading(true,false);
+    google.script.run.withSuccessHandler(function(r){mpDriveLoading(false,false);if(!r||!r.success){mpDriveResult((r&&r.message)||'Sinkronisasi Drive gagal.','danger');return;}mpRenderDriveSync(r);}).withFailureHandler(function(e){mpDriveLoading(false,false);mpDriveResult(e.message||String(e),'danger');}).syncSchoolDrivePermissionsForTeachers();
   };
 
-  window.mpSyncLoading = function(on, existing){
-    var btn=document.getElementById(existing?'mpSyncExistingBtn':'mpSyncBtn');
-    var spin=document.getElementById(existing?'mpSyncExistingSpin':'mpSyncSpin');
-    if(btn) btn.disabled=on;
-    if(spin) spin.classList.toggle('d-none',!on);
-    var other=document.getElementById(existing?'mpSyncBtn':'mpSyncExistingBtn');
-    if(other) other.disabled=on;
-  };
-
-  window.mpSimpan = function(e){
-    e.preventDefault();
-    var data={email:document.getElementById('mpEmail').value,nip:document.getElementById('mpNip').value,nama:document.getElementById('mpNama').value,role:document.getElementById('mpRole').value,status:document.getElementById('mpStatus').value};
-    mpLoading(true);
+  window.mpAuditDrive=function(){
+    mpDriveLoading(true,true);
     google.script.run.withSuccessHandler(function(r){
-      mpLoading(false);
-      if(!r || !r.success){mpAlert((r&&r.message)||'Gagal menyimpan pengguna.','danger');return;}
-      mpAlert(r.action==='UPDATED'?'Pengguna berhasil diperbarui.':'Pengguna berhasil ditambahkan.','success');
-      mpTutupForm(); mpMuat();
-    }).withFailureHandler(function(err){mpLoading(false);mpAlert(err.message||String(err),'danger');}).saveSchoolUser(data);
-    return false;
+      mpDriveLoading(false,true);
+      if(!r||!r.success){mpDriveResult((r&&r.message)||'Audit permission gagal.','danger');return;}
+      document.getElementById('mpDriveRootId').textContent='ID: '+(r.folderId||'-');
+      document.getElementById('mpDrivePresensiId').textContent='ID: '+(r.presensiFolderId||'-');
+      var teachers=r.teachers||[];
+      var good=teachers.filter(function(x){return x.status==='ACTIVE'&&x.rootEditor&&x.presensiEditor;}).length;
+      var bad=teachers.filter(function(x){return x.status==='ACTIVE'&&(!x.rootEditor||!x.presensiEditor);});
+      var html='<div class="alert alert-'+(bad.length?'warning':'success')+' small">'+(bad.length?'Ada '+bad.length+' guru aktif yang belum memiliki akses lengkap.':'Semua guru/wali kelas aktif memiliki akses root dan PRESENSI.')+'</div>';
+      html+='<div class="table-responsive"><table class="table table-sm table-bordered align-middle mb-0 small"><thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Root</th><th>PRESENSI</th></tr></thead><tbody>';
+      html+=teachers.map(function(x){return '<tr><td>'+mpEscape(x.email)+'</td><td>'+mpEscape(x.role)+'</td><td>'+mpEscape(x.status)+'</td><td>'+(x.rootEditor?'✅':'❌')+'</td><td>'+(x.presensiEditor?'✅':'❌')+'</td></tr>';}).join('');
+      html+='</tbody></table></div>';
+      document.getElementById('mpDriveResult').innerHTML=html;
+    }).withFailureHandler(function(e){mpDriveLoading(false,true);mpDriveResult(e.message||String(e),'danger');}).diagnoseSchoolDrivePermissions();
   };
 
-  window.mpSinkronkanSemua = function(){
-    var input=document.getElementById('mpEmailList').value.trim();
-    if(!input){mpAlert('Masukkan daftar email guru terlebih dahulu.','warning');return;}
-    if(!confirm('Sinkronkan semua email yang dimasukkan ke sekolah aktif?')) return;
-    mpSyncLoading(true,false);
-    google.script.run.withSuccessHandler(function(r){
-      mpSyncLoading(false,false);
-      if(!r||!r.success){mpAlert((r&&r.message)||'Sinkronisasi gagal.','danger');return;}
-      var detail=(r.failed||0)>0?' Ada '+r.failed+' pengguna gagal diproses.':'';
-      mpAlert((r.message||'Sinkronisasi selesai.')+detail,(r.failed||0)>0?'warning':'success');
-      mpRenderSyncResult(r.users||[]);
-      mpMuat();
-    }).withFailureHandler(function(e){mpSyncLoading(false,false);mpAlert(e.message||String(e),'danger');}).syncAllSchoolUsers(input);
-  };
-
-  window.mpSinkronkanExisting = function(){
-    if(!confirm('Sinkronkan kembali seluruh pengguna yang sudah ada di USERS sekolah?')) return;
-    mpSyncLoading(true,true);
-    google.script.run.withSuccessHandler(function(r){
-      mpSyncLoading(false,true);
-      if(!r||!r.success){mpAlert((r&&r.message)||'Sinkronisasi USERS gagal.','danger');return;}
-      mpAlert(r.message||'USERS berhasil disinkronkan.','success');
-      mpRenderSyncResult(r.users||[]);
-      mpMuat();
-    }).withFailureHandler(function(e){mpSyncLoading(false,true);mpAlert(e.message||String(e),'danger');}).syncAllExistingSchoolUsers();
-  };
-
-  window.mpRenderSyncResult = function(users){
-    var failed=(users||[]).filter(function(u){return !u.success;});
-    if(!users.length) return;
-    var successCount=users.length-failed.length;
-    var html='<div class="mt-3 small"><strong>Hasil:</strong> '+successCount+' berhasil, '+failed.length+' gagal.</div>';
-    if(failed.length){
-      html+='<div class="alert alert-warning mt-2 mb-0 small"><strong>Gagal:</strong><ul class="mb-0">'+failed.map(function(u){return '<li>'+mpEscape(u.email)+': '+mpEscape(u.error||'Tidak diketahui')+'</li>';}).join('')+'</ul></div>';
-    }
-    var old=document.getElementById('mpSyncResult');
-    if(!old){old=document.createElement('div');old.id='mpSyncResult';document.getElementById('mpSyncCard').querySelector('.card-body').appendChild(old);}
-    old.innerHTML=html;
-  };
-
-  window.mpEdit = function(i){
-    var u=window.mpUsers&&window.mpUsers[i]; if(u) mpBukaForm(u);
-  };
-
-  window.mpStatus = function(email,status){
-    google.script.run.withSuccessHandler(function(r){if(r&&r.success){mpAlert('Status pengguna diperbarui.','success');mpMuat();}else mpAlert((r&&r.message)||'Gagal mengubah status.','danger');}).withFailureHandler(function(e){mpAlert(e.message||String(e),'danger');}).setSchoolUserStatus(email,status);
-  };
-
-  window.mpHapus = function(email,nama){
-    if(!confirm('Hapus pengguna '+nama+' ('+email+') dari sekolah ini?')) return;
-    google.script.run.withSuccessHandler(function(r){if(r&&r.success){mpAlert('Pengguna berhasil dihapus.','success');mpMuat();}else mpAlert((r&&r.message)||'Gagal menghapus pengguna.','danger');}).withFailureHandler(function(e){mpAlert(e.message||String(e),'danger');}).deleteSchoolUser(email);
-  };
-
-  window.mpRender = function(users){
-    window.mpUsers=users||[];
-    var tbody=document.querySelector('#mpTable tbody');
-    if(!users.length){tbody.innerHTML='<tr><td colspan="7" class="text-center py-4 text-muted">Belum ada pengguna yang dikelola.</td></tr>';return;}
-    tbody.innerHTML=users.map(function(u,i){
-      var badge=u.status==='ACTIVE'?'success':'secondary';
-      var next=u.status==='ACTIVE'?'INACTIVE':'ACTIVE';
-      return '<tr><td>'+(i+1)+'</td><td class="fw-semibold">'+mpEscape(u.nama)+'</td><td>'+mpEscape(u.email)+'</td><td>'+mpEscape(u.nip||'-')+'</td><td><span class="badge text-bg-primary">'+mpEscape(u.role)+'</span></td><td><span class="badge text-bg-'+badge+'">'+mpEscape(u.status)+'</span></td><td class="text-end"><div class="btn-group btn-group-sm"><button class="btn btn-outline-primary" title="Edit" onclick="mpEdit('+i+')"><i class="bi bi-pencil"></i></button><button class="btn btn-outline-warning" title="Aktif/Nonaktif" onclick="mpStatus(\''+mpEscape(u.email).replace(/'/g,"\\'")+'\',\''+next+'\')"><i class="bi bi-toggle2-on"></i></button><button class="btn btn-outline-danger" title="Hapus" onclick="mpHapus(\''+mpEscape(u.email).replace(/'/g,"\\'")+'\',\''+mpEscape(u.nama).replace(/'/g,"\\'")+'\')"><i class="bi bi-trash"></i></button></div></td></tr>';
-    }).join('');
-  };
-
-  window.mpMuat = function(){
-    document.querySelector('#mpTable tbody').innerHTML='<tr><td colspan="7" class="text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span>Memuat pengguna...</td></tr>';
-    google.script.run.withSuccessHandler(function(r){
-      if(!r||!r.success){mpAlert((r&&r.message)||'Gagal memuat pengguna.','danger');return;}
-      document.getElementById('mpSekolah').textContent=(r.sekolah||'')+' • NPSN '+(r.npsn||'');
-      mpRender(r.users||[]);
-    }).withFailureHandler(function(e){mpAlert(e.message||String(e),'danger');}).getSchoolUsers();
-  };
-
-  window.initManajemenPengguna = function(){mpMuat();};
+  window.mpBukaForm=function(user){document.getElementById('mpFormCard').style.display='block';document.getElementById('mpSyncCard').style.display='none';document.getElementById('mpDriveSyncCard').style.display='none';document.getElementById('mpUserId').value=user&&user.userId||'';document.getElementById('mpEmail').value=user&&user.email||'';document.getElementById('mpNip').value=user&&user.nip||'';document.getElementById('mpNama').value=user&&user.nama||'';document.getElementById('mpRole').value=user&&user.role||'GURU';document.getElementById('mpStatus').value=user&&user.status||'ACTIVE';document.getElementById('mpEmail').readOnly=!!user;document.getElementById('mpSaveText').textContent=user?'Perbarui':'Simpan';window.scrollTo({top:0,behavior:'smooth'});};
+  window.mpTutupForm=function(){document.getElementById('mpFormCard').style.display='none';document.getElementById('mpForm').reset();document.getElementById('mpEmail').readOnly=false;document.getElementById('mpSaveText').textContent='Simpan';};
+  window.mpBukaSinkronisasi=function(){document.getElementById('mpSyncCard').style.display='block';document.getElementById('mpFormCard').style.display='none';document.getElementById('mpDriveSyncCard').style.display='none';window.scrollTo({top:0,behavior:'smooth'});document.getElementById('mpEmailList').focus();};
+  window.mpTutupSinkronisasi=function(){document.getElementById('mpSyncCard').style.display='none';};
+  window.mpAlert=function(message,type){document.getElementById('mpAlert').innerHTML='<div class="alert alert-'+(type||'info')+' alert-dismissible fade show small">'+mpEscape(message)+'<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';};
+  window.mpLoading=function(on){document.getElementById('mpSaveBtn').disabled=on;document.getElementById('mpSaveSpin').classList.toggle('d-none',!on);};
+  window.mpSyncLoading=function(on,existing){var btn=document.getElementById(existing?'mpSyncExistingBtn':'mpSyncBtn');var spin=document.getElementById(existing?'mpSyncExistingSpin':'mpSyncSpin');if(btn)btn.disabled=on;if(spin)spin.classList.toggle('d-none',!on);var other=document.getElementById(existing?'mpSyncBtn':'mpSyncExistingBtn');if(other)other.disabled=on;};
+  window.mpSimpan=function(e){e.preventDefault();var data={email:document.getElementById('mpEmail').value,nip:document.getElementById('mpNip').value,nama:document.getElementById('mpNama').value,role:document.getElementById('mpRole').value,status:document.getElementById('mpStatus').value};mpLoading(true);google.script.run.withSuccessHandler(function(r){mpLoading(false);if(!r||!r.success){mpAlert((r&&r.message)||'Gagal menyimpan pengguna.','danger');return;}mpAlert(r.action==='UPDATED'?'Pengguna berhasil diperbarui.':'Pengguna berhasil ditambahkan.','success');mpTutupForm();mpMuat();}).withFailureHandler(function(err){mpLoading(false);mpAlert(err.message||String(err),'danger');}).saveSchoolUser(data);return false;};
+  window.mpSinkronkanSemua=function(){var input=document.getElementById('mpEmailList').value.trim();if(!input){mpAlert('Masukkan daftar email guru terlebih dahulu.','warning');return;}if(!confirm('Sinkronkan semua email yang dimasukkan ke sekolah aktif?'))return;mpSyncLoading(true,false);google.script.run.withSuccessHandler(function(r){mpSyncLoading(false,false);if(!r||!r.success){mpAlert((r&&r.message)||'Sinkronisasi gagal.','danger');return;}mpAlert(r.message||'Sinkronisasi selesai.','success');mpMuat();}).withFailureHandler(function(e){mpSyncLoading(false,false);mpAlert(e.message||String(e),'danger');}).syncAllSchoolUsers(input);};
+  window.mpSinkronkanExisting=function(){if(!confirm('Sinkronkan kembali seluruh pengguna yang sudah ada di USERS sekolah?'))return;mpSyncLoading(true,true);google.script.run.withSuccessHandler(function(r){mpSyncLoading(false,true);if(!r||!r.success){mpAlert((r&&r.message)||'Sinkronisasi USERS gagal.','danger');return;}mpAlert(r.message||'USERS berhasil disinkronkan.','success');mpMuat();}).withFailureHandler(function(e){mpSyncLoading(false,true);mpAlert(e.message||String(e),'danger');}).syncAllExistingSchoolUsers();};
+  window.mpEdit=function(i){var u=window.mpUsers&&window.mpUsers[i];if(u)mpBukaForm(u);};
+  window.mpStatus=function(email,status){google.script.run.withSuccessHandler(function(r){if(r&&r.success){mpAlert('Status pengguna diperbarui.','success');mpMuat();}else mpAlert((r&&r.message)||'Gagal mengubah status.','danger');}).withFailureHandler(function(e){mpAlert(e.message||String(e),'danger');}).setSchoolUserStatus(email,status);};
+  window.mpHapus=function(email,nama){if(!confirm('Hapus pengguna '+nama+' ('+email+') dari sekolah ini?'))return;google.script.run.withSuccessHandler(function(r){if(r&&r.success){mpAlert('Pengguna berhasil dihapus.','success');mpMuat();}else mpAlert((r&&r.message)||'Gagal menghapus pengguna.','danger');}).withFailureHandler(function(e){mpAlert(e.message||String(e),'danger');}).deleteSchoolUser(email);};
+  window.mpRender=function(users){window.mpUsers=users||[];var tbody=document.querySelector('#mpTable tbody');if(!users.length){tbody.innerHTML='<tr><td colspan="7" class="text-center py-4 text-muted">Belum ada pengguna yang dikelola.</td></tr>';return;}tbody.innerHTML=users.map(function(u,i){var badge=u.status==='ACTIVE'?'success':'secondary';var next=u.status==='ACTIVE'?'INACTIVE':'ACTIVE';return '<tr><td>'+(i+1)+'</td><td class="fw-semibold">'+mpEscape(u.nama)+'</td><td>'+mpEscape(u.email)+'</td><td>'+mpEscape(u.nip||'-')+'</td><td><span class="badge text-bg-primary">'+mpEscape(u.role)+'</span></td><td><span class="badge text-bg-'+badge+'">'+mpEscape(u.status)+'</span></td><td class="text-end"><div class="btn-group btn-group-sm"><button class="btn btn-outline-primary" title="Edit" onclick="mpEdit('+i+')"><i class="bi bi-pencil"></i></button><button class="btn btn-outline-warning" title="Aktif/Nonaktif" onclick="mpStatus(\''+mpEscape(u.email).replace(/'/g,"\\'")+'\',\''+next+'\')"><i class="bi bi-toggle2-on"></i></button><button class="btn btn-outline-danger" title="Hapus" onclick="mpHapus(\''+mpEscape(u.email).replace(/'/g,"\\'")+'\',\''+mpEscape(u.nama).replace(/'/g,"\\'")+'\')"><i class="bi bi-trash"></i></button></div></td></tr>';}).join('');};
+  window.mpMuat=function(){document.querySelector('#mpTable tbody').innerHTML='<tr><td colspan="7" class="text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span>Memuat pengguna...</td></tr>';google.script.run.withSuccessHandler(function(r){if(!r||!r.success){mpAlert((r&&r.message)||'Gagal memuat pengguna.','danger');return;}document.getElementById('mpSekolah').textContent=(r.sekolah||'')+' • NPSN '+(r.npsn||'');mpRender(r.users||[]);}).withFailureHandler(function(e){mpAlert(e.message||String(e),'danger');}).getSchoolUsers();};
+  window.initManajemenPengguna=function(){mpMuat();};
 })();
 </script>

@@ -1,86 +1,92 @@
 /**
  * SIM SATRIA - SCHOOL DRIVE PERMISSIONS
  *
- * Sinkronisasi akses folder Drive sekolah untuk GURU/WALI_KELAS.
+ * Sinkronisasi akses Drive sekolah untuk GURU/WALI_KELAS.
  * Tidak pernah membuka Spreadsheet MASTER.
  *
- * Prinsip:
- * - sumber user: USERS pada spreadsheet sekolah aktif
- * - sumber folder: context.school.driveFolderId
- * - ACTIVE GURU/WALI_KELAS -> Editor folder sekolah
- * - INACTIVE GURU/WALI_KELAS -> akses langsung folder dicabut
- * - KARYAWAN tidak ikut sinkronisasi ini
- * - Editor tidak boleh membagikan ulang folder
+ * PDF dan dokumen presensi disimpan pada:
+ *   Drive Sekolah / PRESENSI
  */
 
 const SCHOOL_DRIVE_PERMISSION_CONFIG = {
   TEACHER_ROLES: ["GURU", "WALI_KELAS"],
   ACTIVE_STATUS: "ACTIVE",
+  PRESENSI_FOLDER: "PRESENSI",
 };
 
-/**
- * Memberikan akses Editor ke root Drive sekolah untuk satu guru.
- * Aman dipanggil berulang kali; addEditor tidak membuat permission ganda.
- */
+function getSchoolPresensiFolder_() {
+  const root = getSchoolDriveFolder_();
+  const folders = root.getFoldersByName(SCHOOL_DRIVE_PERMISSION_CONFIG.PRESENSI_FOLDER);
+  return folders.hasNext() ? folders.next() : root.createFolder(SCHOOL_DRIVE_PERMISSION_CONFIG.PRESENSI_FOLDER);
+}
+
+/** Memberikan akses Editor root sekolah dan folder PRESENSI. */
 function grantSchoolDriveEditor_(context, email) {
   email = normalizeEmail_(email);
   if (!email) throw new Error("Email guru kosong.");
 
-  const folder = getSchoolDriveFolder_();
-  folder.addEditor(email);
+  const root = getSchoolDriveFolder_();
+  const presensi = getSchoolPresensiFolder_();
 
-  // Guru dapat mengelola file, tetapi tidak boleh mengubah permission
-  // dan membagikan folder sekolah kepada pihak lain.
-  try {
-    folder.setShareableByEditors(false);
-  } catch (e) {
-    console.warn("[DRIVE PERMISSION] setShareableByEditors gagal: " + e.message);
+  root.addEditor(email);
+  presensi.addEditor(email);
+
+  try { root.setShareableByEditors(false); } catch (e) {
+    console.warn("[DRIVE PERMISSION] root setShareableByEditors gagal: " + e.message);
+  }
+  try { presensi.setShareableByEditors(false); } catch (e) {
+    console.warn("[DRIVE PERMISSION] PRESENSI setShareableByEditors gagal: " + e.message);
   }
 
   return {
     success: true,
     email: email,
-    folderId: folder.getId(),
-    folderName: folder.getName(),
+    folderId: root.getId(),
+    folderName: root.getName(),
+    presensiFolderId: presensi.getId(),
+    presensiFolderName: presensi.getName(),
   };
 }
 
-/**
- * Mencabut akses langsung guru terhadap root Drive sekolah.
- */
+/** Mencabut akses langsung guru terhadap root dan PRESENSI. */
 function revokeSchoolDriveEditor_(email) {
   email = normalizeEmail_(email);
   if (!email) return { success: false, email: "", skipped: true };
 
-  const folder = getSchoolDriveFolder_();
-  try {
-    folder.revokePermissions(email);
-  } catch (e) {
-    console.warn("[DRIVE PERMISSION] Gagal mencabut " + email + ": " + e.message);
+  const root = getSchoolDriveFolder_();
+  let presensi = null;
+  try { presensi = getSchoolPresensiFolder_(); } catch (e) {}
+
+  try { root.revokePermissions(email); } catch (e) {
+    console.warn("[DRIVE PERMISSION] Gagal mencabut root " + email + ": " + e.message);
+  }
+  if (presensi) {
+    try { presensi.revokePermissions(email); } catch (e) {
+      console.warn("[DRIVE PERMISSION] Gagal mencabut PRESENSI " + email + ": " + e.message);
+    }
   }
 
   return {
     success: true,
     email: email,
-    folderId: folder.getId(),
-    folderName: folder.getName(),
+    folderId: root.getId(),
+    folderName: root.getName(),
+    presensiFolderId: presensi ? presensi.getId() : "",
   };
 }
 
 /**
  * Sinkronisasi seluruh guru pada sekolah aktif.
- * Jalankan sebagai ADMIN_SEKOLAH.
- *
- * Fungsi ini membaca USERS dari spreadsheet sekolah aktif, bukan MASTER.
+ * Jalankan sekali setelah deployment/update.
+ * Sumber user hanya USERS pada spreadsheet sekolah aktif.
  */
 function syncSchoolDrivePermissionsForTeachers() {
   const context = requireUserManager_();
   const spreadsheetId = String(context.school.spreadsheetId || "").trim();
-  if (!spreadsheetId) {
-    throw new Error("Spreadsheet sekolah aktif tidak ditemukan.");
-  }
+  if (!spreadsheetId) throw new Error("Spreadsheet sekolah aktif tidak ditemukan.");
 
-  const folder = getSchoolDriveFolder_();
+  const root = getSchoolDriveFolder_();
+  const presensi = getSchoolPresensiFolder_();
   const ss = SpreadsheetApp.openById(spreadsheetId);
   const sheet = ss.getSheetByName(USER_MANAGEMENT_CONFIG.SHEET || "USERS");
   if (!sheet) throw new Error('Sheet "USERS" tidak ditemukan.');
@@ -89,13 +95,13 @@ function syncSchoolDrivePermissionsForTeachers() {
   if (values.length < 2) {
     return {
       success: true,
-      folderId: folder.getId(),
-      folderName: folder.getName(),
+      folderId: root.getId(),
+      folderName: root.getName(),
+      presensiFolderId: presensi.getId(),
+      presensiFolderName: presensi.getName(),
       totalUsers: 0,
       activeTeachers: 0,
-      granted: [],
-      revoked: [],
-      failed: [],
+      granted: [], revoked: [], failed: [],
       message: "Belum ada pengguna pada USERS.",
     };
   }
@@ -104,7 +110,6 @@ function syncSchoolDrivePermissionsForTeachers() {
   const emailIndex = headers.indexOf("EMAIL");
   const roleIndex = headers.indexOf("ROLE");
   const statusIndex = headers.indexOf("STATUS");
-
   if (emailIndex < 0 || roleIndex < 0 || statusIndex < 0) {
     throw new Error("Struktur USERS tidak lengkap. Diperlukan EMAIL, ROLE, STATUS.");
   }
@@ -112,50 +117,37 @@ function syncSchoolDrivePermissionsForTeachers() {
   const granted = [];
   const revoked = [];
   const failed = [];
-  const activeTeacherEmails = [];
 
   for (let i = 1; i < values.length; i++) {
     const email = normalizeEmail_(values[i][emailIndex]);
     const role = normalizeRole_(values[i][roleIndex]);
     const status = normalizeRole_(values[i][statusIndex]);
-
-    if (!email) continue;
-    if (SCHOOL_DRIVE_PERMISSION_CONFIG.TEACHER_ROLES.indexOf(role) < 0) continue;
+    if (!email || SCHOOL_DRIVE_PERMISSION_CONFIG.TEACHER_ROLES.indexOf(role) < 0) continue;
 
     if (status === SCHOOL_DRIVE_PERMISSION_CONFIG.ACTIVE_STATUS) {
-      activeTeacherEmails.push(email);
       try {
-        folder.addEditor(email);
+        root.addEditor(email);
+        presensi.addEditor(email);
         granted.push(email);
       } catch (e) {
-        failed.push({
-          email: email,
-          action: "GRANT",
-          error: e.message || String(e),
-        });
+        failed.push({ email: email, action: "GRANT", error: e.message || String(e) });
       }
     } else {
       try {
-        folder.revokePermissions(email);
+        root.revokePermissions(email);
+        presensi.revokePermissions(email);
         revoked.push(email);
       } catch (e) {
-        failed.push({
-          email: email,
-          action: "REVOKE",
-          error: e.message || String(e),
-        });
+        failed.push({ email: email, action: "REVOKE", error: e.message || String(e) });
       }
     }
   }
 
-  try {
-    folder.setShareableByEditors(false);
-  } catch (e) {
-    failed.push({
-      email: "",
-      action: "SET_SHAREABLE_BY_EDITORS",
-      error: e.message || String(e),
-    });
+  try { root.setShareableByEditors(false); } catch (e) {
+    failed.push({ email: "", action: "ROOT_SHARE", error: e.message || String(e) });
+  }
+  try { presensi.setShareableByEditors(false); } catch (e) {
+    failed.push({ email: "", action: "PRESENSI_SHARE", error: e.message || String(e) });
   }
 
   return {
@@ -163,24 +155,22 @@ function syncSchoolDrivePermissionsForTeachers() {
     npsn: context.npsn || "",
     sekolah: context.school.namaSekolah || "",
     spreadsheetId: spreadsheetId,
-    folderId: folder.getId(),
-    folderName: folder.getName(),
+    folderId: root.getId(),
+    folderName: root.getName(),
+    presensiFolderId: presensi.getId(),
+    presensiFolderName: presensi.getName(),
     totalUsers: values.length - 1,
-    activeTeachers: activeTeacherEmails.length,
+    activeTeachers: granted.length,
     granted: granted,
     revoked: revoked,
     failed: failed,
-    message:
-      failed.length === 0
-        ? "Permission Drive sekolah berhasil disinkronkan untuk seluruh GURU/WALI_KELAS aktif."
-        : "Sinkronisasi selesai tetapi ada permission yang gagal diproses. Periksa daftar failed.",
+    message: failed.length === 0
+      ? "Permission root dan folder PRESENSI sekolah berhasil disinkronkan untuk seluruh GURU/WALI_KELAS aktif."
+      : "Sinkronisasi selesai tetapi ada permission yang gagal diproses. Periksa failed.",
   };
 }
 
-/**
- * Dipanggil saat user GURU/WALI_KELAS dibuat atau statusnya diubah.
- * Kegagalan permission Drive tidak membatalkan transaksi USERS.
- */
+/** Dipanggil saat user dibuat/diubah. */
 function syncTeacherSchoolDrivePermission_(context, email, role, status) {
   role = normalizeRole_(role);
   status = normalizeRole_(status);
@@ -191,25 +181,21 @@ function syncTeacherSchoolDrivePermission_(context, email, role, status) {
   }
 
   try {
-    if (status === SCHOOL_DRIVE_PERMISSION_CONFIG.ACTIVE_STATUS) {
-      return grantSchoolDriveEditor_(context, email);
-    }
-    return revokeSchoolDriveEditor_(email);
+    return status === SCHOOL_DRIVE_PERMISSION_CONFIG.ACTIVE_STATUS
+      ? grantSchoolDriveEditor_(context, email)
+      : revokeSchoolDriveEditor_(email);
   } catch (e) {
-    return {
-      success: false,
-      email: email,
-      error: e.message || String(e),
-    };
+    return { success: false, email: email, error: e.message || String(e) };
   }
 }
 
 /**
- * Diagnostik permission Drive sekolah.
+ * Diagnostik. Menunjukkan permission root dan PRESENSI sekaligus.
  */
 function diagnoseSchoolDrivePermissions() {
   const context = requireUserManager_();
-  const folder = getSchoolDriveFolder_();
+  const root = getSchoolDriveFolder_();
+  const presensi = getSchoolPresensiFolder_();
   const spreadsheetId = String(context.school.spreadsheetId || "").trim();
   const ss = SpreadsheetApp.openById(spreadsheetId);
   const sheet = ss.getSheetByName(USER_MANAGEMENT_CONFIG.SHEET || "USERS");
@@ -219,8 +205,10 @@ function diagnoseSchoolDrivePermissions() {
   if (values.length < 2) {
     return {
       success: true,
-      folderId: folder.getId(),
-      folderName: folder.getName(),
+      folderId: root.getId(),
+      folderName: root.getName(),
+      presensiFolderId: presensi.getId(),
+      presensiFolderName: presensi.getName(),
       teachers: [],
     };
   }
@@ -229,26 +217,23 @@ function diagnoseSchoolDrivePermissions() {
   const emailIndex = headers.indexOf("EMAIL");
   const roleIndex = headers.indexOf("ROLE");
   const statusIndex = headers.indexOf("STATUS");
-  if (emailIndex < 0 || roleIndex < 0 || statusIndex < 0) {
-    throw new Error("Struktur USERS tidak lengkap.");
-  }
+  if (emailIndex < 0 || roleIndex < 0 || statusIndex < 0) throw new Error("Struktur USERS tidak lengkap.");
 
-  const editors = folder.getEditors().map(function (user) {
-    return normalizeEmail_(user.getEmail());
-  });
-
+  const rootEditors = root.getEditors().map(function(u) { return normalizeEmail_(u.getEmail()); });
+  const presensiEditors = presensi.getEditors().map(function(u) { return normalizeEmail_(u.getEmail()); });
   const teachers = [];
+
   for (let i = 1; i < values.length; i++) {
     const email = normalizeEmail_(values[i][emailIndex]);
     const role = normalizeRole_(values[i][roleIndex]);
     const status = normalizeRole_(values[i][statusIndex]);
     if (!email || SCHOOL_DRIVE_PERMISSION_CONFIG.TEACHER_ROLES.indexOf(role) < 0) continue;
-
     teachers.push({
       email: email,
       role: role,
       status: status,
-      isEditor: editors.indexOf(email) >= 0,
+      rootEditor: rootEditors.indexOf(email) >= 0,
+      presensiEditor: presensiEditors.indexOf(email) >= 0,
     });
   }
 
@@ -256,10 +241,12 @@ function diagnoseSchoolDrivePermissions() {
     success: true,
     npsn: context.npsn || "",
     sekolah: context.school.namaSekolah || "",
-    folderId: folder.getId(),
-    folderName: folder.getName(),
-    shareableByEditors: folder.isShareableByEditors(),
+    folderId: root.getId(),
+    folderName: root.getName(),
+    presensiFolderId: presensi.getId(),
+    presensiFolderName: presensi.getName(),
+    rootEditors: rootEditors,
+    presensiEditors: presensiEditors,
     teachers: teachers,
-    editors: editors,
   };
 }
