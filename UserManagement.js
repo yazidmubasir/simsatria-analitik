@@ -115,6 +115,10 @@ function saveSchoolUser(user) {
   if (status === "ACTIVE") grantSchoolSpreadsheetEditor_(context.school.spreadsheetId, email);
   else revokeSchoolSpreadsheetAccess_(context.school.spreadsheetId, email);
 
+  // Sinkronisasi Drive sekolah untuk GURU/WALI_KELAS.
+  // Kegagalan Drive tidak membatalkan transaksi USERS yang sudah berhasil.
+  const drivePermission = syncTeacherSchoolDrivePermission_(context, email, role, status);
+
   clearUserContextCache_(email);
 
   return {
@@ -127,6 +131,7 @@ function saveSchoolUser(user) {
     npsn: context.npsn,
     sekolah: context.school.namaSekolah,
     binding: { npsn: binding.npsn, sekolah: binding.namaSekolah },
+    drivePermission: drivePermission,
   };
 }
 
@@ -151,8 +156,21 @@ function deleteSchoolUser(email) {
       sheet.deleteRow(i + 1);
       removeSchoolUserBinding_(email);
       revokeSchoolSpreadsheetAccess_(context.school.spreadsheetId, email);
+
+      let drivePermission = { success: true, skipped: true, reason: "ROLE_NOT_TEACHER" };
+      if (typeof revokeSchoolDriveEditor_ === "function" &&
+          ["GURU", "WALI_KELAS"].indexOf(role) >= 0) {
+        drivePermission = revokeSchoolDriveEditor_(email);
+      }
+
       clearUserContextCache_(email);
-      return { success: true, email: email, npsn: context.npsn, sekolah: context.school.namaSekolah };
+      return {
+        success: true,
+        email: email,
+        npsn: context.npsn,
+        sekolah: context.school.namaSekolah,
+        drivePermission: drivePermission,
+      };
     }
   }
   throw new Error("Pengguna dengan email " + email + " tidak ditemukan.");
@@ -170,24 +188,34 @@ function setSchoolUserStatus(email, status) {
   const headers = values[0].map(normalizeHeader_);
   const emailIndex = headers.indexOf("EMAIL");
   const statusIndex = headers.indexOf("STATUS");
-  if (emailIndex < 0 || statusIndex < 0) throw new Error("Struktur USERS tidak lengkap.");
+  const roleIndex = headers.indexOf("ROLE");
+  if (emailIndex < 0 || statusIndex < 0 || roleIndex < 0) throw new Error("Struktur USERS tidak lengkap.");
 
   for (let i = 1; i < values.length; i++) {
     if (normalizeEmail_(values[i][emailIndex]) === email) {
+      const role = normalizeRole_(values[i][roleIndex]);
       sheet.getRange(i + 1, statusIndex + 1).setValue(status);
       const updatedUser = {
         USER_ID: String(values[i][headers.indexOf("USER_ID")] || "").trim(),
         EMAIL: email,
         NIP: String(values[i][headers.indexOf("NIP")] || "").trim(),
         NAMA: String(values[i][headers.indexOf("NAMA")] || "").trim(),
-        ROLE: String(values[i][headers.indexOf("ROLE")] || "").trim().toUpperCase(),
+        ROLE: role,
         STATUS: status,
       };
       registerSchoolUserBinding_(context, updatedUser);
       if (status === "ACTIVE") grantSchoolSpreadsheetEditor_(context.school.spreadsheetId, email);
       else revokeSchoolSpreadsheetAccess_(context.school.spreadsheetId, email);
+
+      const drivePermission = syncTeacherSchoolDrivePermission_(context, email, role, status);
+
       clearUserContextCache_(email);
-      return { success: true, email: email, status: status };
+      return {
+        success: true,
+        email: email,
+        status: status,
+        drivePermission: drivePermission,
+      };
     }
   }
   throw new Error("Pengguna tidak ditemukan.");
@@ -288,6 +316,8 @@ function bootstrapTeacherMasayid09() {
     accessError = e.message || String(e);
   }
 
+  const drivePermission = syncTeacherSchoolDrivePermission_(context, email, "GURU", "ACTIVE");
+
   clearUserContextCache_(email);
 
   return {
@@ -301,8 +331,9 @@ function bootstrapTeacherMasayid09() {
     spreadsheetId: spreadsheetId,
     accessGranted: accessGranted,
     accessError: accessError,
+    drivePermission: drivePermission,
     message: accessGranted
-      ? "Guru berhasil didaftarkan, binding dibuat, dan akses spreadsheet sekolah diberikan."
+      ? "Guru berhasil didaftarkan, binding dibuat, akses spreadsheet sekolah diberikan, dan permission Drive sekolah disinkronkan."
       : "Binding berhasil dibuat tetapi akses spreadsheet gagal. Periksa accessError dan kebijakan berbagi Google Drive.",
   };
 }
@@ -325,6 +356,7 @@ function diagnoseTeacherMasayid09() {
     binding: binding,
     fileOpenByAdmin: false,
     teacherListedAsEditor: false,
+    driveFolder: null,
     error: "",
   };
 
@@ -336,6 +368,19 @@ function diagnoseTeacherMasayid09() {
     result.editors = editors;
   } catch (e) {
     result.error = e.message || String(e);
+  }
+
+  try {
+    const folder = getSchoolDriveFolder_();
+    result.driveFolder = {
+      id: folder.getId(),
+      name: folder.getName(),
+      isEditor: folder.getEditors().some(function (u) {
+        return normalizeEmail_(u.getEmail()) === email;
+      }),
+    };
+  } catch (e) {
+    result.driveFolder = { error: e.message || String(e) };
   }
 
   return result;
