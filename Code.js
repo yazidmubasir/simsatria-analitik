@@ -18,36 +18,15 @@ function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
-/**
- * Inisialisasi registry master.
- * MASTER hanya mengelola registry sekolah dan administrator sekolah.
- */
 function setupMasterRegistry() {
   const ss = getMasterSpreadsheet_();
-
   ensureSheetHeaders_(ss, "SCHOOLS", [
-    "NPSN",
-    "NAMA_SEKOLAH",
-    "STATUS",
-    "SPREADSHEET_ID",
-    "DRIVE_FOLDER_ID",
-    "ALAMAT",
-    "LOGO_URL",
-    "TAGLINE",
-    "WARNA_UTAMA",
-    "WARNA_SEKUNDER",
+    "NPSN","NAMA_SEKOLAH","STATUS","SPREADSHEET_ID","DRIVE_FOLDER_ID",
+    "ALAMAT","LOGO_URL","TAGLINE","WARNA_UTAMA","WARNA_SEKUNDER",
   ]);
-
   ensureSheetHeaders_(ss, "ADMIN_SEKOLAH", [
-    "USER_ID",
-    "EMAIL",
-    "NIP",
-    "NAMA",
-    "NPSN",
-    "ROLE",
-    "STATUS",
+    "USER_ID","EMAIL","NIP","NAMA","NPSN","ROLE","STATUS",
   ]);
-
   return {
     success: true,
     spreadsheetId: ss.getId(),
@@ -59,24 +38,15 @@ function setupMasterRegistry() {
 function ensureSheetHeaders_(ss, name, headers) {
   let sh = ss.getSheetByName(name);
   if (!sh) sh = ss.insertSheet(name);
-
-  const current =
-    sh.getLastColumn() > 0
-      ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]
-      : [];
-
+  const current = sh.getLastColumn() > 0
+    ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]
+    : [];
   if (!current.length || current.every((v) => String(v).trim() === "")) {
     sh.getRange(1, 1, 1, headers.length).setValues([headers]);
     sh.setFrozenRows(1);
     return;
   }
-
-  const normalized = current.map((v) =>
-    String(v || "")
-      .trim()
-      .toUpperCase(),
-  );
-
+  const normalized = current.map((v) => String(v || "").trim().toUpperCase());
   headers.forEach((h) => {
     if (!normalized.includes(h.toUpperCase())) {
       sh.getRange(1, sh.getLastColumn() + 1).setValue(h);
@@ -86,10 +56,6 @@ function ensureSheetHeaders_(ss, name, headers) {
   sh.setFrozenRows(1);
 }
 
-/**
- * Endpoint utama frontend.
- * Satu request saat halaman dibuka.
- */
 function getLoginInfo() {
   const context = getCurrentUserContext();
   return {
@@ -135,67 +101,44 @@ function testSchoolResources() {
     email: c.email,
     npsn: c.npsn,
     sekolah: c.school.namaSekolah,
-    spreadsheet: {
-      success: false,
-      id: c.school.spreadsheetId,
-      name: "",
-      error: "",
-    },
-    drive: {
-      success: false,
-      id: c.school.driveFolderId,
-      name: "",
-      error: "",
-    },
+    spreadsheet: { success: false, id: c.school.spreadsheetId, name: "", error: "" },
+    drive: { success: false, id: c.school.driveFolderId, name: "", error: "" },
   };
-
   try {
     const ss = SpreadsheetApp.openById(c.school.spreadsheetId);
     result.spreadsheet.success = true;
     result.spreadsheet.name = ss.getName();
-  } catch (e) {
-    result.spreadsheet.error = e.message;
-  }
-
+  } catch (e) { result.spreadsheet.error = e.message; }
   try {
     const folder = DriveApp.getFolderById(c.school.driveFolderId);
     result.drive.success = true;
     result.drive.name = folder.getName();
-  } catch (e) {
-    result.drive.error = e.message;
-  }
+  } catch (e) { result.drive.error = e.message; }
   return result;
 }
 
 function testSchoolContextSpeed() {
   const start = Date.now();
-  const context = getSchoolContextInfo();
-  return {
-    elapsedMs: Date.now() - start,
-    context: context,
-  };
+  return { elapsedMs: Date.now() - start, context: getSchoolContextInfo() };
 }
 
-// koneksi
 function getKoneksiView() {
   const html = HtmlService.createHtmlOutputFromFile("koneksi").getContent();
   let js = HtmlService.createHtmlOutputFromFile("koneksi_js").getContent();
   js = js.replace(/^\s*<script[^>]*>/i, "").replace(/<\/script>\s*$/i, "");
-  return {
-    success: true,
-    html: html,
-    js: js,
-  };
+  return { success: true, html: html, js: js };
 }
 
-// presensi kelas
 function getPresensiPerkelasView() {
   const html = HtmlService.createHtmlOutputFromFile("presensiPerkelas").getContent();
   let js = HtmlService.createHtmlOutputFromFile("presensiPerkelas_js").getContent();
   js = js.replace(/^\s*<script[^>]*>/i, "").replace(/<\/script>\s*$/i, "");
-  return {
-    success: true,
-    html: html,
-    js: js,
-  };
+
+  // Semua operasi Presensi dari UI diarahkan ke security boundary server-side.
+  js = js
+    .replace(/\.getKelasPresensiPerkelas\(\)/g, ".securePresensiLoad()")
+    .replace(/\.getPresensiPerkelasData\(/g, ".securePresensiGetData(")
+    .replace(/\.simpanPresensiPerkelas\(/g, ".securePresensiSave(");
+
+  return { success: true, html: html, js: js };
 }
