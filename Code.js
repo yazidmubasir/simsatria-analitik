@@ -70,11 +70,5 @@ function getPresensiPerkelasView() {
 }
 
 function getManajemenPenggunaView() {
-  const view = getUserManagementView();
-  const syncHtml = HtmlService.createHtmlOutputFromFile("UserSync").getContent();
-  let syncJs = HtmlService.createHtmlOutputFromFile("UserSync_js").getContent();
-  syncJs = syncJs.replace(/^\s*<script[^>]*>/i, "").replace(/<\/script>\s*$/i, "");
-  view.html = String(view.html || "") + syncHtml;
-  view.js = String(view.js || "") + "\n" + syncJs;
-  return view;
+  return getUserManagementView();
 }
