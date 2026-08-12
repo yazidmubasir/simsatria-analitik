@@ -1,6 +1,6 @@
 <script>
 (function(){
-  window.mpEscape = function(v){return String(v==null?'':v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[c];});};
+  window.mpEscape=function(v){return String(v==null?'':v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[c];});};
 
   window.mpBukaDriveSync=function(){
     document.getElementById('mpDriveSyncCard').style.display='block';
@@ -20,7 +20,9 @@
     document.getElementById('mpDriveRootName').textContent=r.sekolah||'Drive Sekolah';
     document.getElementById('mpDriveRootId').textContent='ID: '+(r.driveFolderId||'-');
     document.getElementById('mpDrivePresensiName').textContent='PRESENSI';
-    document.getElementById('mpDrivePresensiId').textContent='Folder dibuat/dipakai otomatis oleh sistem';
+    document.getElementById('mpDrivePresensiId').textContent='ID: '+(r.presensiFolderId||'Folder akan dibuat/dipakai otomatis');
+    document.getElementById('mpDriveAgendaName').textContent='AGENDA';
+    document.getElementById('mpDriveAgendaId').textContent='ID: '+(r.agendaFolderId||'Folder akan dibuat/dipakai otomatis');
   };
 
   window.mpDriveLoading=function(on,audit){
@@ -31,9 +33,7 @@
     else {var syncBtn=document.getElementById('mpDriveSyncBtn');if(syncBtn)syncBtn.disabled=on;}
   };
 
-  window.mpDriveResult=function(message,type){
-    document.getElementById('mpDriveResult').innerHTML='<div class="alert alert-'+(type||'info')+' small mb-0">'+mpEscape(message)+'</div>';
-  };
+  window.mpDriveResult=function(message,type){document.getElementById('mpDriveResult').innerHTML='<div class="alert alert-'+(type||'info')+' small mb-0">'+mpEscape(message)+'</div>';};
 
   window.mpRenderDriveSync=function(r){
     var failed=r.failed||[], granted=r.granted||[], revoked=r.revoked||[];
@@ -44,13 +44,13 @@
     html+='<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="text-muted">Diberi akses</div><strong>'+granted.length+'</strong></div></div>';
     html+='<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="text-muted">Dicabut</div><strong>'+revoked.length+'</strong></div></div>';
     html+='<div class="col-6 col-md-3"><div class="border rounded p-2"><div class="text-muted">Gagal</div><strong>'+failed.length+'</strong></div></div></div>';
-    html+='<div class="mt-2 text-muted">Root: <code>'+mpEscape(r.folderId||'-')+'</code><br>PRESENSI: <code>'+mpEscape(r.presensiFolderId||'-')+'</code></div>';
+    html+='<div class="mt-2 text-muted">Root: <code>'+mpEscape(r.folderId||'-')+'</code><br>PRESENSI: <code>'+mpEscape(r.presensiFolderId||'-')+'</code><br>AGENDA: <code>'+mpEscape(r.agendaFolderId||'-')+'</code></div>';
     if(failed.length){html+='<div class="alert alert-danger mt-2 mb-0 small"><strong>Detail gagal:</strong><ul class="mb-0">'+failed.map(function(x){return '<li>'+mpEscape(x.email||x.action||'')+': '+mpEscape(x.error||'Tidak diketahui')+'</li>';}).join('')+'</ul></div>';}
     document.getElementById('mpDriveResult').innerHTML=html;
   };
 
   window.mpSinkronkanDrive=function(){
-    if(!confirm('Sinkronkan permission Drive untuk seluruh GURU/WALI_KELAS aktif?'))return;
+    if(!confirm('Sinkronkan permission Drive untuk seluruh GURU/WALI_KELAS aktif ke Root, PRESENSI, dan AGENDA?'))return;
     mpDriveLoading(true,false);
     google.script.run.withSuccessHandler(function(r){mpDriveLoading(false,false);if(!r||!r.success){mpDriveResult((r&&r.message)||'Sinkronisasi Drive gagal.','danger');return;}mpRenderDriveSync(r);}).withFailureHandler(function(e){mpDriveLoading(false,false);mpDriveResult(e.message||String(e),'danger');}).syncSchoolDrivePermissionsForTeachers();
   };
@@ -62,12 +62,13 @@
       if(!r||!r.success){mpDriveResult((r&&r.message)||'Audit permission gagal.','danger');return;}
       document.getElementById('mpDriveRootId').textContent='ID: '+(r.folderId||'-');
       document.getElementById('mpDrivePresensiId').textContent='ID: '+(r.presensiFolderId||'-');
+      document.getElementById('mpDriveAgendaId').textContent='ID: '+(r.agendaFolderId||'-');
       var teachers=r.teachers||[];
-      var good=teachers.filter(function(x){return x.status==='ACTIVE'&&x.rootEditor&&x.presensiEditor;}).length;
-      var bad=teachers.filter(function(x){return x.status==='ACTIVE'&&(!x.rootEditor||!x.presensiEditor);});
-      var html='<div class="alert alert-'+(bad.length?'warning':'success')+' small">'+(bad.length?'Ada '+bad.length+' guru aktif yang belum memiliki akses lengkap.':'Semua guru/wali kelas aktif memiliki akses root dan PRESENSI.')+'</div>';
-      html+='<div class="table-responsive"><table class="table table-sm table-bordered align-middle mb-0 small"><thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Root</th><th>PRESENSI</th></tr></thead><tbody>';
-      html+=teachers.map(function(x){return '<tr><td>'+mpEscape(x.email)+'</td><td>'+mpEscape(x.role)+'</td><td>'+mpEscape(x.status)+'</td><td>'+(x.rootEditor?'✅':'❌')+'</td><td>'+(x.presensiEditor?'✅':'❌')+'</td></tr>';}).join('');
+      var good=teachers.filter(function(x){return x.status==='ACTIVE'&&x.rootEditor&&x.presensiEditor&&x.agendaEditor;}).length;
+      var bad=teachers.filter(function(x){return x.status==='ACTIVE'&&(!x.rootEditor||!x.presensiEditor||!x.agendaEditor);});
+      var html='<div class="alert alert-'+(bad.length?'warning':'success')+' small">'+(bad.length?'Ada '+bad.length+' guru aktif yang belum memiliki akses lengkap.':'Semua guru/wali kelas aktif memiliki akses Root, PRESENSI, dan AGENDA.')+'</div>';
+      html+='<div class="table-responsive"><table class="table table-sm table-bordered align-middle mb-0 small"><thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Root</th><th>PRESENSI</th><th>AGENDA</th></tr></thead><tbody>';
+      html+=teachers.map(function(x){return '<tr><td>'+mpEscape(x.email)+'</td><td>'+mpEscape(x.role)+'</td><td>'+mpEscape(x.status)+'</td><td>'+(x.rootEditor?'✅':'❌')+'</td><td>'+(x.presensiEditor?'✅':'❌')+'</td><td>'+(x.agendaEditor?'✅':'❌')+'</td></tr>';}).join('');
       html+='</tbody></table></div>';
       document.getElementById('mpDriveResult').innerHTML=html;
     }).withFailureHandler(function(e){mpDriveLoading(false,true);mpDriveResult(e.message||String(e),'danger');}).diagnoseSchoolDrivePermissions();
