@@ -1,17 +1,18 @@
 /**
- * AUTH.GS
+ * SIM SATRIA - AUTHENTICATION
  *
- * MASTER hanya menyimpan registry sekolah dan administrator sekolah.
- * Guru/Karyawan/Wali Kelas dikelola pada Spreadsheet sekolah -> USERS.
+ * MASTER hanya menjadi sumber otoritatif untuk ADMIN_SEKOLAH.
+ * Pengguna sekolah (GURU/WALI_KELAS/KARYAWAN) memakai binding lokal
+ * yang diregistrasikan oleh ADMIN_SEKOLAH ke Script Properties.
  *
- * Routing:
- *   ADMIN: Google Account -> ADMIN_SEKOLAH -> NPSN -> SCHOOLS
- *   USER : Google Account -> scan ACTIVE SCHOOLS -> local USERS -> SCHOOLS
+ * Web App tetap USER_ACCESSING agar Session.getActiveUser() dapat
+ * mengenali akun Google pengguna. User sekolah tidak membaca MASTER.
  */
 const AUTH_CONFIG = {
   ADMIN_SHEET: "ADMIN_SEKOLAH",
   SCHOOLS_SHEET: "SCHOOLS",
   USERS_SHEET: "USERS",
+  USER_BINDINGS_PROPERTY: "SIM_SATRIA_USER_BINDINGS_V2",
   ACTIVE_STATUS: "ACTIVE",
   CACHE_SECONDS: 21600,
 };
@@ -22,6 +23,10 @@ function normalizeEmail_(email) {
 
 function normalizeNpsn_(npsn) {
   return String(npsn || "").trim();
+}
+
+function normalizeAuthRole_(role) {
+  return String(role || "").trim().toUpperCase();
 }
 
 function getGoogleUserEmail_() {
@@ -37,13 +42,21 @@ function getGoogleUserEmail_() {
 
 function getAdminSheet_() {
   const sheet = getMasterSpreadsheet_().getSheetByName(AUTH_CONFIG.ADMIN_SHEET);
-  if (!sheet) throw new Error("Sheet ADMIN_SEKOLAH tidak ditemukan pada Spreadsheet Master. Jalankan setupMasterRegistry().");
+  if (!sheet) {
+    throw new Error(
+      "Sheet ADMIN_SEKOLAH tidak ditemukan pada Spreadsheet Master. Jalankan setupMasterRegistry().",
+    );
+  }
   return sheet;
 }
 
 function getSchoolsSheet_() {
   const sheet = getMasterSpreadsheet_().getSheetByName(AUTH_CONFIG.SCHOOLS_SHEET);
-  if (!sheet) throw new Error("Sheet SCHOOLS tidak ditemukan pada Spreadsheet Master. Jalankan setupMasterRegistry().");
+  if (!sheet) {
+    throw new Error(
+      "Sheet SCHOOLS tidak ditemukan pada Spreadsheet Master. Jalankan setupMasterRegistry().",
+    );
+  }
   return sheet;
 }
 
@@ -51,10 +64,14 @@ function sheetRowsAsObjects_(sheet) {
   if (!sheet) return [];
   const values = sheet.getDataRange().getValues();
   if (!values || values.length < 2) return [];
-  const headers = values[0].map(function (h) { return String(h || "").trim().toUpperCase(); });
+  const headers = values[0].map(function (h) {
+    return String(h || "").trim().toUpperCase();
+  });
   return values.slice(1).map(function (row) {
     const obj = {};
-    headers.forEach(function (header, index) { obj[header] = row[index]; });
+    headers.forEach(function (header, index) {
+      obj[header] = row[index];
+    });
     return obj;
   });
 }
@@ -62,24 +79,36 @@ function sheetRowsAsObjects_(sheet) {
 function getAdminByEmail_(email) {
   const normalizedEmail = normalizeEmail_(email);
   if (!normalizedEmail) return null;
+
   const cache = CacheService.getScriptCache();
   const key = "ADMIN_" + normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_");
   const cached = cache.get(key);
   if (cached) {
-    try { return JSON.parse(cached); } catch (e) { cache.remove(key); }
+    try {
+      return JSON.parse(cached);
+    } catch (e) {
+      cache.remove(key);
+    }
   }
 
   const sheet = getAdminSheet_();
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return null;
-  const headers = values[0].map(function (h) { return String(h || "").trim().toUpperCase(); });
+
+  const headers = values[0].map(function (h) {
+    return String(h || "").trim().toUpperCase();
+  });
   const emailIndex = headers.indexOf("EMAIL");
-  if (emailIndex === -1) throw new Error("Kolom EMAIL tidak ditemukan di ADMIN_SEKOLAH.");
+  if (emailIndex === -1) {
+    throw new Error("Kolom EMAIL tidak ditemukan di ADMIN_SEKOLAH.");
+  }
 
   for (let i = 1; i < values.length; i++) {
     if (normalizeEmail_(values[i][emailIndex]) === normalizedEmail) {
       const admin = {};
-      headers.forEach(function (header, index) { admin[header] = values[i][index]; });
+      headers.forEach(function (header, index) {
+        admin[header] = values[i][index];
+      });
       cache.put(key, JSON.stringify(admin), AUTH_CONFIG.CACHE_SECONDS);
       return admin;
     }
@@ -90,24 +119,36 @@ function getAdminByEmail_(email) {
 function getSchoolByNpsnAuth_(npsn) {
   const normalizedNpsn = normalizeNpsn_(npsn);
   if (!normalizedNpsn) return null;
+
   const cache = CacheService.getScriptCache();
   const key = "SCHOOL_" + normalizedNpsn;
   const cached = cache.get(key);
   if (cached) {
-    try { return JSON.parse(cached); } catch (e) { cache.remove(key); }
+    try {
+      return JSON.parse(cached);
+    } catch (e) {
+      cache.remove(key);
+    }
   }
 
   const sheet = getSchoolsSheet_();
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return null;
-  const headers = values[0].map(function (h) { return String(h || "").trim().toUpperCase(); });
+
+  const headers = values[0].map(function (h) {
+    return String(h || "").trim().toUpperCase();
+  });
   const npsnIndex = headers.indexOf("NPSN");
-  if (npsnIndex === -1) throw new Error("Kolom NPSN tidak ditemukan di SCHOOLS.");
+  if (npsnIndex === -1) {
+    throw new Error("Kolom NPSN tidak ditemukan di SCHOOLS.");
+  }
 
   for (let i = 1; i < values.length; i++) {
     if (normalizeNpsn_(values[i][npsnIndex]) === normalizedNpsn) {
       const school = {};
-      headers.forEach(function (header, index) { school[header] = values[i][index]; });
+      headers.forEach(function (header, index) {
+        school[header] = values[i][index];
+      });
       cache.put(key, JSON.stringify(school), AUTH_CONFIG.CACHE_SECONDS);
       return school;
     }
@@ -118,26 +159,33 @@ function getSchoolByNpsnAuth_(npsn) {
 function getSchoolUserByEmail_(spreadsheetId, email) {
   const normalizedEmail = normalizeEmail_(email);
   if (!spreadsheetId || !normalizedEmail) return null;
+
   const ss = SpreadsheetApp.openById(spreadsheetId);
   const sheet = ss.getSheetByName(AUTH_CONFIG.USERS_SHEET);
   if (!sheet) return null;
+
   const rows = sheetRowsAsObjects_(sheet);
   for (let i = 0; i < rows.length; i++) {
-    if (normalizeEmail_(rows[i].EMAIL) === normalizedEmail) return rows[i];
+    if (normalizeEmail_(rows[i].EMAIL) === normalizedEmail) {
+      return rows[i];
+    }
   }
   return null;
 }
 
 function buildSchoolContext_(user, school, email) {
   const spreadsheetId = String(school.SPREADSHEET_ID || "").trim();
-  if (!spreadsheetId) throw new Error("Spreadsheet sekolah belum dikonfigurasi.");
+  if (!spreadsheetId) {
+    throw new Error("Spreadsheet sekolah belum dikonfigurasi.");
+  }
+
   return {
     authenticated: true,
     email: normalizeEmail_(email),
     userId: String(user.USER_ID || "").trim(),
     nip: String(user.NIP || "").trim(),
     nama: String(user.NAMA || "").trim(),
-    role: String(user.ROLE || "GURU").trim().toUpperCase(),
+    role: normalizeAuthRole_(user.ROLE || "GURU"),
     npsn: normalizeNpsn_(school.NPSN),
     school: {
       npsn: normalizeNpsn_(school.NPSN),
@@ -153,90 +201,196 @@ function buildSchoolContext_(user, school, email) {
   };
 }
 
-function getLocalUserContextByEmail_(email) {
+function getUserBindings_() {
+  const raw = PropertiesService.getScriptProperties().getProperty(
+    AUTH_CONFIG.USER_BINDINGS_PROPERTY,
+  );
+  if (!raw) return {};
+  try {
+    const data = JSON.parse(raw);
+    return data && typeof data === "object" ? data : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveUserBindings_(bindings) {
+  PropertiesService.getScriptProperties().setProperty(
+    AUTH_CONFIG.USER_BINDINGS_PROPERTY,
+    JSON.stringify(bindings || {}),
+  );
+}
+
+function registerSchoolUserBinding_(context, user) {
+  if (!context || !context.school || !user) {
+    throw new Error("Data binding pengguna tidak lengkap.");
+  }
+
+  const email = normalizeEmail_(user.EMAIL || user.email);
+  if (!email) throw new Error("Email pengguna wajib diisi.");
+
+  const role = normalizeAuthRole_(user.ROLE || user.role);
+  if (!["GURU", "WALI_KELAS", "KARYAWAN"].includes(role)) {
+    throw new Error("Role pengguna sekolah tidak diizinkan.");
+  }
+
+  const status = String(user.STATUS || user.status || "ACTIVE")
+    .trim()
+    .toUpperCase();
+
+  const bindings = getUserBindings_();
+  bindings[email] = {
+    userId: String(user.USER_ID || user.userId || "").trim(),
+    nip: String(user.NIP || user.nip || "").trim(),
+    nama: String(user.NAMA || user.nama || "").trim(),
+    role: role,
+    status: status,
+    npsn: normalizeNpsn_(context.npsn),
+    spreadsheetId: String(context.school.spreadsheetId || "").trim(),
+    namaSekolah: String(context.school.namaSekolah || "").trim(),
+    driveFolderId: String(context.school.driveFolderId || "").trim(),
+    alamat: String(context.school.alamat || "").trim(),
+    logoUrl: String(context.school.logoUrl || "").trim(),
+    tagline: String(context.school.tagline || "").trim(),
+    warnaUtama: String(context.school.warnaUtama || "").trim(),
+    warnaSekunder: String(context.school.warnaSekunder || "").trim(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  saveUserBindings_(bindings);
+  clearUserContextCache_(email);
+  return bindings[email];
+}
+
+function removeSchoolUserBinding_(email) {
+  const normalizedEmail = normalizeEmail_(email);
+  if (!normalizedEmail) return;
+  const bindings = getUserBindings_();
+  if (Object.prototype.hasOwnProperty.call(bindings, normalizedEmail)) {
+    delete bindings[normalizedEmail];
+    saveUserBindings_(bindings);
+  }
+  clearUserContextCache_(normalizedEmail);
+}
+
+function getBoundSchoolUserContext_(email) {
   const normalizedEmail = normalizeEmail_(email);
   if (!normalizedEmail) return null;
-  const cache = CacheService.getScriptCache();
-  const key = "LOCAL_USER_" + normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_");
-  const cached = cache.get(key);
-  if (cached) {
-    try { return JSON.parse(cached); } catch (e) { cache.remove(key); }
+
+  const bindings = getUserBindings_();
+  const binding = bindings[normalizedEmail];
+  if (!binding) return null;
+
+  if (String(binding.status || "").trim().toUpperCase() !== AUTH_CONFIG.ACTIVE_STATUS) {
+    throw new Error("Akun pengguna sekolah tidak aktif. Hubungi ADMIN_SEKOLAH.");
   }
 
-  const sheet = getSchoolsSheet_();
-  const values = sheet.getDataRange().getValues();
-  if (values.length < 2) return null;
-  const headers = values[0].map(function (h) { return String(h || "").trim().toUpperCase(); });
-  const npsnIndex = headers.indexOf("NPSN");
-  const statusIndex = headers.indexOf("STATUS");
-  const spreadsheetIndex = headers.indexOf("SPREADSHEET_ID");
-  if (npsnIndex < 0 || spreadsheetIndex < 0) return null;
-
-  for (let i = 1; i < values.length; i++) {
-    const schoolStatus = statusIndex >= 0 ? String(values[i][statusIndex] || "").trim().toUpperCase() : "ACTIVE";
-    if (schoolStatus && schoolStatus !== AUTH_CONFIG.ACTIVE_STATUS) continue;
-    const npsn = normalizeNpsn_(values[i][npsnIndex]);
-    const spreadsheetId = String(values[i][spreadsheetIndex] || "").trim();
-    if (!npsn || !spreadsheetId) continue;
-
-    try {
-      const user = getSchoolUserByEmail_(spreadsheetId, normalizedEmail);
-      if (!user) continue;
-      const userStatus = String(user.STATUS || "").trim().toUpperCase();
-      if (userStatus !== AUTH_CONFIG.ACTIVE_STATUS) continue;
-      const school = {};
-      headers.forEach(function (header, index) { school[header] = values[i][index]; });
-      const context = buildSchoolContext_(user, school, normalizedEmail);
-      cache.put(key, JSON.stringify(context), AUTH_CONFIG.CACHE_SECONDS);
-      return context;
-    } catch (e) {
-      console.warn("[AUTH] Gagal membaca USERS sekolah NPSN " + npsn + ": " + e.message);
-    }
+  if (!binding.npsn || !binding.spreadsheetId) {
+    throw new Error("Binding akun sekolah belum lengkap. Hubungi ADMIN_SEKOLAH.");
   }
-  return null;
+
+  const school = {
+    NPSN: binding.npsn,
+    NAMA_SEKOLAH: binding.namaSekolah,
+    STATUS: AUTH_CONFIG.ACTIVE_STATUS,
+    SPREADSHEET_ID: binding.spreadsheetId,
+    DRIVE_FOLDER_ID: binding.driveFolderId,
+    ALAMAT: binding.alamat,
+    LOGO_URL: binding.logoUrl,
+    TAGLINE: binding.tagline,
+    WARNA_UTAMA: binding.warnaUtama,
+    WARNA_SEKUNDER: binding.warnaSekunder,
+  };
+
+  const user = {
+    USER_ID: binding.userId,
+    EMAIL: normalizedEmail,
+    NIP: binding.nip,
+    NAMA: binding.nama,
+    ROLE: binding.role,
+    STATUS: binding.status,
+  };
+
+  return buildSchoolContext_(user, school, normalizedEmail);
 }
 
 function getCurrentUserContext() {
   const email = getGoogleUserEmail_();
   const cache = CacheService.getScriptCache();
-  const cacheKey = "USER_CONTEXT_V4_" + email.replace(/[^a-zA-Z0-9]/g, "_");
+  const cacheKey = "USER_CONTEXT_V5_" + email.replace(/[^a-zA-Z0-9]/g, "_");
   const cached = cache.get(cacheKey);
   if (cached) {
-    try { return JSON.parse(cached); } catch (e) { cache.remove(cacheKey); }
+    try {
+      return JSON.parse(cached);
+    } catch (e) {
+      cache.remove(cacheKey);
+    }
   }
 
-  // Jalur utama administrator sekolah.
+  // PENTING: cek binding user sekolah terlebih dahulu.
+  // Ini mencegah akun guru harus membuka Spreadsheet MASTER.
+  const boundUser = getBoundSchoolUserContext_(email);
+  if (boundUser) {
+    cache.put(cacheKey, JSON.stringify(boundUser), AUTH_CONFIG.CACHE_SECONDS);
+    return boundUser;
+  }
+
+  // Hanya akun yang belum mempunyai binding yang diperiksa ke MASTER.
+  // Ini adalah jalur ADMIN_SEKOLAH.
   const admin = getAdminByEmail_(email);
   if (admin) {
     const status = String(admin.STATUS || "").trim().toUpperCase();
-    if (status !== AUTH_CONFIG.ACTIVE_STATUS) throw new Error("Akun administrator sekolah tidak aktif.");
+    if (status !== AUTH_CONFIG.ACTIVE_STATUS) {
+      throw new Error("Akun administrator sekolah tidak aktif.");
+    }
+
     const npsn = normalizeNpsn_(admin.NPSN);
-    if (!npsn) throw new Error("Akun administrator belum memiliki NPSN sekolah.");
+    if (!npsn) {
+      throw new Error("Akun administrator belum memiliki NPSN sekolah.");
+    }
+
     const school = getSchoolByNpsnAuth_(npsn);
-    if (!school) throw new Error("Sekolah dengan NPSN " + npsn + " tidak ditemukan pada registry SIM SATRIA.");
+    if (!school) {
+      throw new Error(
+        "Sekolah dengan NPSN " + npsn + " tidak ditemukan pada registry SIM SATRIA.",
+      );
+    }
+
     const schoolStatus = String(school.STATUS || "").trim().toUpperCase();
-    if (schoolStatus && schoolStatus !== AUTH_CONFIG.ACTIVE_STATUS) throw new Error("Sekolah Anda tidak aktif pada SIM SATRIA.");
+    if (schoolStatus && schoolStatus !== AUTH_CONFIG.ACTIVE_STATUS) {
+      throw new Error("Sekolah Anda tidak aktif pada SIM SATRIA.");
+    }
+
     const context = buildSchoolContext_(admin, school, email);
     cache.put(cacheKey, JSON.stringify(context), AUTH_CONFIG.CACHE_SECONDS);
     return context;
   }
 
-  // Jalur pengguna sekolah: GURU/WALI_KELAS/KARYAWAN.
-  const localContext = getLocalUserContextByEmail_(email);
-  if (localContext) {
-    cache.put(cacheKey, JSON.stringify(localContext), AUTH_CONFIG.CACHE_SECONDS);
-    return localContext;
-  }
-
-  throw new Error('Akun Google "' + email + '" belum terdaftar pada SIM SATRIA. Hubungi ADMIN_SEKOLAH sekolah Anda.');
+  throw new Error(
+    'Akun Google "' +
+      email +
+      '" belum terdaftar sebagai pengguna sekolah. Hubungi ADMIN_SEKOLAH sekolah Anda.',
+  );
 }
 
 function checkAuthentication() {
   try {
     const c = getCurrentUserContext();
-    return { success: true, authenticated: true, email: c.email, userId: c.userId, npsn: c.npsn, sekolah: c.school.namaSekolah, role: c.role };
+    return {
+      success: true,
+      authenticated: true,
+      email: c.email,
+      userId: c.userId,
+      npsn: c.npsn,
+      sekolah: c.school.namaSekolah,
+      role: c.role,
+    };
   } catch (e) {
-    return { success: false, authenticated: false, message: e.message };
+    return {
+      success: false,
+      authenticated: false,
+      message: e.message,
+    };
   }
 }
 
@@ -244,38 +398,79 @@ function bindMySchool(npsn) {
   const email = getGoogleUserEmail_();
   const requestedNpsn = normalizeNpsn_(npsn);
   if (!requestedNpsn) throw new Error("NPSN sekolah wajib diisi.");
+
   const admin = getAdminByEmail_(email);
-  if (!admin) throw new Error("Akun Google belum terdaftar di ADMIN_SEKOLAH.");
+  if (!admin) {
+    throw new Error("Hanya ADMIN_SEKOLAH yang dapat melakukan binding sekolah.");
+  }
+
   const adminNpsn = normalizeNpsn_(admin.NPSN);
-  if (adminNpsn && adminNpsn !== requestedNpsn) throw new Error("NPSN yang diminta berbeda dengan NPSN akun administrator. Binding ditolak demi keamanan.");
+  if (adminNpsn && adminNpsn !== requestedNpsn) {
+    throw new Error(
+      "NPSN yang diminta berbeda dengan NPSN akun administrator. Binding ditolak demi keamanan.",
+    );
+  }
+
   const school = getSchoolByNpsnAuth_(requestedNpsn);
   if (!school) throw new Error("NPSN sekolah tidak ditemukan pada SCHOOLS.");
+
   const spreadsheetId = String(school.SPREADSHEET_ID || "").trim();
   if (!spreadsheetId) throw new Error("SPREADSHEET_ID sekolah belum dikonfigurasi.");
-  const ss = SpreadsheetApp.openById(spreadsheetId);
-  let users = ss.getSheetByName(AUTH_CONFIG.USERS_SHEET);
-  if (!users) users = ss.insertSheet(AUTH_CONFIG.USERS_SHEET);
-  const headers = ["USER_ID", "EMAIL", "NIP", "NAMA", "ROLE", "STATUS"];
-  ensureLocalHeaders_(users, headers);
-  const values = users.getDataRange().getValues();
-  const headerRow = values[0].map(function (h) { return String(h || "").trim().toUpperCase(); });
-  const emailIndex = headerRow.indexOf("EMAIL"), userIdIndex = headerRow.indexOf("USER_ID"), nipIndex = headerRow.indexOf("NIP"), namaIndex = headerRow.indexOf("NAMA"), roleIndex = headerRow.indexOf("ROLE"), statusIndex = headerRow.indexOf("STATUS");
-  let targetRow = -1;
-  for (let i = 1; i < values.length; i++) if (normalizeEmail_(values[i][emailIndex]) === email) { targetRow = i + 1; break; }
-  const userId = String(admin.USER_ID || "").trim() || Utilities.getUuid();
-  const row = new Array(headerRow.length).fill("");
-  row[userIdIndex] = userId; row[emailIndex] = email; row[nipIndex] = String(admin.NIP || "").trim(); row[namaIndex] = String(admin.NAMA || "").trim(); row[roleIndex] = String(admin.ROLE || "ADMIN_SEKOLAH").trim().toUpperCase(); row[statusIndex] = String(admin.STATUS || "ACTIVE").trim().toUpperCase();
-  if (targetRow === -1) users.getRange(users.getLastRow() + 1, 1, 1, row.length).setValues([row]); else users.getRange(targetRow, 1, 1, row.length).setValues([row]);
+
+  const user = getSchoolUserByEmail_(spreadsheetId, email);
+  if (!user) throw new Error("Akun belum terdaftar pada USERS sekolah.");
+
+  const context = buildSchoolContext_(admin, school, email);
+  registerSchoolUserBinding_(context, user);
   clearMyAuthCache();
-  return { success: true, message: "Akun berhasil di-bind ke database sekolah.", email: email, npsn: requestedNpsn, sekolah: String(school.NAMA_SEKOLAH || "").trim(), userId: userId };
+
+  return {
+    success: true,
+    message: "Binding pengguna berhasil dibuat.",
+    email: email,
+    npsn: requestedNpsn,
+    sekolah: String(school.NAMA_SEKOLAH || "").trim(),
+  };
 }
 
 function ensureLocalHeaders_(sheet, requiredHeaders) {
-  const normalizedRequired = requiredHeaders.map(function (h) { return String(h || "").trim().toUpperCase(); });
-  if (sheet.getLastColumn() === 0) { sheet.getRange(1, 1, 1, normalizedRequired.length).setValues([normalizedRequired]); sheet.setFrozenRows(1); return normalizedRequired; }
-  const current = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function (h) { return String(h || "").trim().toUpperCase(); });
-  normalizedRequired.forEach(function (header) { if (!current.includes(header)) { sheet.getRange(1, sheet.getLastColumn() + 1).setValue(header); current.push(header); } });
-  sheet.setFrozenRows(1); return current;
+  const normalizedRequired = requiredHeaders.map(function (h) {
+    return String(h || "").trim().toUpperCase();
+  });
+
+  if (sheet.getLastColumn() === 0) {
+    sheet.getRange(1, 1, 1, normalizedRequired.length).setValues([normalizedRequired]);
+    sheet.setFrozenRows(1);
+    return normalizedRequired;
+  }
+
+  const current = sheet
+    .getRange(1, 1, 1, sheet.getLastColumn())
+    .getValues()[0]
+    .map(function (h) {
+      return String(h || "").trim().toUpperCase();
+    });
+
+  normalizedRequired.forEach(function (header) {
+    if (!current.includes(header)) {
+      sheet.getRange(1, sheet.getLastColumn() + 1).setValue(header);
+      current.push(header);
+    }
+  });
+
+  sheet.setFrozenRows(1);
+  return current;
+}
+
+function clearUserContextCache_(email) {
+  const normalizedEmail = normalizeEmail_(email);
+  if (!normalizedEmail) return;
+  const safe = normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_");
+  const cache = CacheService.getScriptCache();
+  cache.remove("USER_CONTEXT_V5_" + safe);
+  cache.remove("USER_CONTEXT_V4_" + safe);
+  cache.remove("LOCAL_USER_" + safe);
+  cache.remove("ADMIN_" + safe);
 }
 
 function clearMyAuthCache() {
@@ -287,5 +482,37 @@ function clearMyAuthCache() {
 function refreshMySchoolContext() {
   clearMyAuthCache();
   const context = getCurrentUserContext();
-  return { success: true, message: "School Context berhasil di-refresh.", email: context.email, npsn: context.npsn, sekolah: context.school.namaSekolah, spreadsheetId: context.school.spreadsheetId, driveFolderId: context.school.driveFolderId };
+  return {
+    success: true,
+    message: "School Context berhasil di-refresh.",
+    email: context.email,
+    npsn: context.npsn,
+    sekolah: context.school.namaSekolah,
+    spreadsheetId: context.school.spreadsheetId,
+    driveFolderId: context.school.driveFolderId,
+  };
+}
+
+function syncSchoolUserBinding(email) {
+  const context = getCurrentUserContext();
+  if (normalizeAuthRole_(context.role) !== "ADMIN_SEKOLAH") {
+    throw new Error("Hanya ADMIN_SEKOLAH yang dapat melakukan sinkronisasi binding pengguna.");
+  }
+
+  const normalizedEmail = normalizeEmail_(email);
+  if (!normalizedEmail) throw new Error("Email pengguna wajib diisi.");
+
+  const user = getSchoolUserByEmail_(context.school.spreadsheetId, normalizedEmail);
+  if (!user) throw new Error("Pengguna tidak ditemukan pada USERS sekolah.");
+
+  const binding = registerSchoolUserBinding_(context, user);
+  return {
+    success: true,
+    email: normalizedEmail,
+    userId: binding.userId,
+    role: binding.role,
+    status: binding.status,
+    npsn: binding.npsn,
+    sekolah: binding.namaSekolah,
+  };
 }
