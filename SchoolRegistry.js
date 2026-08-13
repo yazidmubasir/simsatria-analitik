@@ -23,14 +23,10 @@ function getMasterSpreadsheet_() {
     // Jika akun aktif memang mempunyai akses MASTER, gunakan spreadsheet asli.
     return SpreadsheetApp.openById(id);
   } catch (masterError) {
-    // Jika tidak mempunyai akses, autentikasi tetap dapat memakai registry lokal.
-    const meta = getMasterAuthRegistryStatus();
-    if (!meta || !meta.configured) {
-      throw new Error(
-        "Akun ini tidak memiliki akses ke MASTER dan registry autentikasi lokal belum disinkronkan. Jalankan syncMasterAuthRegistry() dari akun admin utama.",
-      );
-    }
-
+    // Jika tidak mempunyai akses MASTER, JANGAN menghentikan autentikasi
+    // pengguna sekolah. getAdminByEmail_() akan mendapatkan null dari proxy
+    // lalu getCurrentUserContext() dapat melanjutkan ke binding lokal GURU,
+    // WALI_KELAS, atau KARYAWAN.
     return createLocalMasterRegistryProxy_();
   }
 }
