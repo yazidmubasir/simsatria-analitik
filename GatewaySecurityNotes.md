@@ -1,0 +1,3 @@
+Write Gateway is intentionally separate from the USER_ACCESSING web app. The gateway must be deployed Execute as Me by an account that has Editor rights to school spreadsheets and Drive folders. The main app must never switch away from USER_ACCESSING. Non-admin users remain Viewer and are authenticated by school binding before the gateway is called.
+
+Before production deployment, set SIM_SATRIA_WRITE_GATEWAY_URL and SIM_SATRIA_WRITE_GATEWAY_SECRET in the main project, and SIM_SATRIA_MASTER_SPREADSHEET_ID plus SIM_SATRIA_WRITE_GATEWAY_SECRET in the gateway project. Do not expose these properties in UI responses.
