@@ -1,13 +1,14 @@
 /**
  * SIM SATRIA - SCHOOL DRIVE PERMISSIONS
  *
- * User sekolah biasa hanya VIEWER secara fisik.
- * Hak tulis/upload dilakukan melalui Write Gateway yang Execute as = Me.
+ * User sekolah aktif diberikan Editor langsung pada folder Drive sekolah
+ * agar upload/penyimpanan dari Web App USER_ACCESSING berjalan langsung.
+ * Tidak menggunakan Write Gateway.
  * ADMIN_SEKOLAH tetap menjadi pengelola/editor folder sekolah.
  */
 
 const SCHOOL_DRIVE_PERMISSION_CONFIG = {
-  VIEWER_ROLES: ['GURU', 'WALI_KELAS', 'KARYAWAN', 'SISWA'],
+  EDITOR_ROLES: ['GURU', 'WALI_KELAS', 'KARYAWAN', 'SISWA'],
   ACTIVE_STATUS: 'ACTIVE',
   MODULE_FOLDERS: ['PRESENSI', 'AGENDA'],
 };
@@ -19,26 +20,29 @@ function getSchoolDrivePermissionFolders_() {
   return { root: root, PRESENSI: getSchoolPresensiFolder_(), AGENDA: getSchoolAgendaFolder_() };
 }
 
-function addViewerVerified_(folder, email, label) {
+function addEditorVerified_(folder, email, label) {
   email = normalizeEmail_(email);
   if (!email) throw new Error('Email pengguna kosong.');
-  try { folder.revokePermissions(email); } catch (e) {}
-  folder.addViewer(email);
-  const viewers = folder.getViewers().map(function(user) { return normalizeEmail_(user.getEmail()); });
+  try { folder.addEditor(email); } catch (e) {
+    throw new Error('Gagal memberikan Editor pada ' + (label || folder.getName()) + ': ' + e.message);
+  }
   const editors = folder.getEditors().map(function(user) { return normalizeEmail_(user.getEmail()); });
-  if (editors.indexOf(email) >= 0) throw new Error('Pengguna masih memiliki Editor pada folder ' + (label || folder.getName()) + '.');
-  if (viewers.indexOf(email) < 0) throw new Error('Permission Viewer untuk ' + email + ' belum terdeteksi pada folder ' + (label || folder.getName()) + '.');
+  if (editors.indexOf(email) < 0) {
+    throw new Error('Permission Editor untuk ' + email + ' belum terdeteksi pada folder ' + (label || folder.getName()) + '.');
+  }
   return true;
 }
 
-function grantSchoolDriveViewer_(context, email, role) {
+function grantSchoolDriveEditor_(context, email, role) {
   email = normalizeEmail_(email);
   role = normalizeRole_(role);
-  if (SCHOOL_DRIVE_PERMISSION_CONFIG.VIEWER_ROLES.indexOf(role) < 0) return { success: true, skipped: true, reason: 'ROLE_NOT_VIEWER_USER' };
+  if (SCHOOL_DRIVE_PERMISSION_CONFIG.EDITOR_ROLES.indexOf(role) < 0) {
+    return { success: true, skipped: true, reason: 'ROLE_NOT_EDITOR_USER' };
+  }
   const folders = getSchoolDrivePermissionFolders_();
-  addViewerVerified_(folders.root, email, 'ROOT SEKOLAH');
-  addViewerVerified_(folders.PRESENSI, email, 'PRESENSI');
-  addViewerVerified_(folders.AGENDA, email, 'AGENDA');
+  addEditorVerified_(folders.root, email, 'ROOT SEKOLAH');
+  addEditorVerified_(folders.PRESENSI, email, 'PRESENSI');
+  addEditorVerified_(folders.AGENDA, email, 'AGENDA');
   return {
     success: true,
     email: email,
@@ -78,17 +82,17 @@ function syncSchoolDrivePermissionsForTeachers() {
     const email = normalizeEmail_(values[i][emailIndex]);
     const role = normalizeRole_(values[i][roleIndex]);
     const status = normalizeRole_(values[i][statusIndex]);
-    if (!email || SCHOOL_DRIVE_PERMISSION_CONFIG.VIEWER_ROLES.indexOf(role) < 0) continue;
+    if (!email || SCHOOL_DRIVE_PERMISSION_CONFIG.EDITOR_ROLES.indexOf(role) < 0) continue;
     try {
       if (status === SCHOOL_DRIVE_PERMISSION_CONFIG.ACTIVE_STATUS) {
-        grantSchoolDriveViewer_(context, email, role);
+        grantSchoolDriveEditor_(context, email, role);
         granted.push(email);
       } else {
         revokeSchoolDriveEditor_(email);
         revoked.push(email);
       }
     } catch (e) {
-      failed.push({ email: email, action: status === 'ACTIVE' ? 'GRANT_VIEWER' : 'REVOKE', error: e.message || String(e) });
+      failed.push({ email: email, action: status === 'ACTIVE' ? 'GRANT_EDITOR' : 'REVOKE', error: e.message || String(e) });
     }
   }
   return {
@@ -103,16 +107,16 @@ function syncSchoolDrivePermissionsForTeachers() {
     granted: granted,
     revoked: revoked,
     failed: failed,
-    message: failed.length === 0 ? 'Permission Viewer berhasil disinkronkan untuk pengguna sekolah.' : 'Sinkronisasi selesai dengan beberapa kegagalan.',
+    message: failed.length === 0 ? 'Permission Editor berhasil disinkronkan untuk pengguna sekolah.' : 'Sinkronisasi selesai dengan beberapa kegagalan.',
   };
 }
 
 function syncTeacherSchoolDrivePermission_(context, email, role, status) {
   role = normalizeRole_(role); status = normalizeRole_(status); email = normalizeEmail_(email);
-  if (SCHOOL_DRIVE_PERMISSION_CONFIG.VIEWER_ROLES.indexOf(role) < 0) return { success: true, skipped: true, reason: 'ROLE_NOT_VIEWER_USER', email: email };
+  if (SCHOOL_DRIVE_PERMISSION_CONFIG.EDITOR_ROLES.indexOf(role) < 0) return { success: true, skipped: true, reason: 'ROLE_NOT_EDITOR_USER', email: email };
   try {
     return status === SCHOOL_DRIVE_PERMISSION_CONFIG.ACTIVE_STATUS
-      ? grantSchoolDriveViewer_(context, email, role)
+      ? grantSchoolDriveEditor_(context, email, role)
       : revokeSchoolDriveEditor_(email);
   } catch (e) {
     return { success: false, email: email, error: e.message || String(e) };
@@ -130,17 +134,17 @@ function diagnoseSchoolDrivePermissions() {
   if (values.length < 2) return { success: true, teachers: [] };
   const headers = values[0].map(normalizeHeader_);
   const emailIndex = headers.indexOf('EMAIL'), roleIndex = headers.indexOf('ROLE'), statusIndex = headers.indexOf('STATUS');
-  const viewers_ = function(folder) { return folder.getViewers().map(function(u) { return normalizeEmail_(u.getEmail()); }); };
   const editors_ = function(folder) { return folder.getEditors().map(function(u) { return normalizeEmail_(u.getEmail()); }); };
+  const viewers_ = function(folder) { return folder.getViewers().map(function(u) { return normalizeEmail_(u.getEmail()); }); };
   const result = [];
   for (let i = 1; i < values.length; i++) {
     const email = normalizeEmail_(values[i][emailIndex]), role = normalizeRole_(values[i][roleIndex]), status = normalizeRole_(values[i][statusIndex]);
-    if (!email || SCHOOL_DRIVE_PERMISSION_CONFIG.VIEWER_ROLES.indexOf(role) < 0) continue;
+    if (!email || SCHOOL_DRIVE_PERMISSION_CONFIG.EDITOR_ROLES.indexOf(role) < 0) continue;
     result.push({
       email: email, role: role, status: status,
-      rootViewer: viewers_(folders.root).indexOf(email) >= 0, rootEditor: editors_(folders.root).indexOf(email) >= 0,
-      presensiViewer: viewers_(folders.PRESENSI).indexOf(email) >= 0, presensiEditor: editors_(folders.PRESENSI).indexOf(email) >= 0,
-      agendaViewer: viewers_(folders.AGENDA).indexOf(email) >= 0, agendaEditor: editors_(folders.AGENDA).indexOf(email) >= 0,
+      rootEditor: editors_(folders.root).indexOf(email) >= 0, rootViewer: viewers_(folders.root).indexOf(email) >= 0,
+      presensiEditor: editors_(folders.PRESENSI).indexOf(email) >= 0, presensiViewer: viewers_(folders.PRESENSI).indexOf(email) >= 0,
+      agendaEditor: editors_(folders.AGENDA).indexOf(email) >= 0, agendaViewer: viewers_(folders.AGENDA).indexOf(email) >= 0,
     });
   }
   return { success: true, npsn: context.npsn, sekolah: context.school.namaSekolah, teachers: result };

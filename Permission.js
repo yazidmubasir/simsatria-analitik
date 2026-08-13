@@ -76,29 +76,19 @@ function requireSchoolAdmin() {
 }
 
 /**
- * Semua akses file fisik user biasa dibuat VIEWER.
- * Hak tulis diberikan hanya melalui Write Gateway yang Execute as = Me.
+ * User sekolah aktif diberikan akses Editor langsung ke Spreadsheet sekolah.
+ * Tidak ada Write Gateway/proxy untuk operasi tulis.
  */
-function grantSchoolSpreadsheetViewer_(spreadsheetId, email) {
-  if (!spreadsheetId || !email) throw new Error("Data akses spreadsheet tidak lengkap.");
-  const file = DriveApp.getFileById(spreadsheetId);
-  try { file.addViewer(email); } catch (e) {
-    throw new Error("Gagal memberikan Viewer database sekolah kepada " + email + ": " + e.message);
-  }
-  try { file.revokePermissions(email); } catch (e) {}
-  try { file.addViewer(email); } catch (e) {}
-}
-
 function grantSchoolSpreadsheetEditor_(spreadsheetId, email) {
   if (!spreadsheetId || !email) throw new Error("Data akses spreadsheet tidak lengkap.");
-  const context = getCurrentUserContext();
-  const role = normalizeRole_(context.role);
-  if (["GURU", "WALI_KELAS", "KARYAWAN", "SISWA"].includes(role)) {
-    return grantSchoolSpreadsheetViewer_(spreadsheetId, email);
-  }
   const file = DriveApp.getFileById(spreadsheetId);
-  file.addEditor(email);
-  try { file.setShareableByEditors(false); } catch (e) {}
+  try {
+    file.addEditor(email);
+    try { file.setShareableByEditors(false); } catch (e) {}
+  } catch (e) {
+    throw new Error("Gagal memberikan Editor database sekolah kepada " + email + ": " + e.message);
+  }
+  return { success: true, spreadsheetId: spreadsheetId, email: email };
 }
 
 function revokeSchoolSpreadsheetAccess_(spreadsheetId, email) {
