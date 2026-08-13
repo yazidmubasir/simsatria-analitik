@@ -1,253 +1,69 @@
 <div class="container-fluid py-3">
   <div class="row g-3">
-    <!-- =====================================================
-         HEADER KONEKSI — FULL WIDTH
-         ===================================================== -->
     <div class="col-12">
       <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
         <div class="card-header text-white">
           <div class="d-flex align-items-center gap-3">
-            <div class="
-              rounded-4
-              bg-white
-              bg-opacity-10
-              d-flex
-              align-items-center
-              justify-content-center
-              flex-shrink-0
-              p-3
-            ">
-              🔗
-            </div>
+            <div class="rounded-4 bg-white bg-opacity-10 d-flex align-items-center justify-content-center flex-shrink-0 p-3">🔗</div>
             <div>
-              <div class="fs-5 fw-bold">
-                Koneksi SIM SATRIA
-              </div>
-              <div class="small opacity-75">
-                Autentikasi, School Context,
-                Database, Drive dan Transaction Engine
-              </div>
+              <div class="fs-5 fw-bold">Koneksi SIM SATRIA</div>
+              <div class="small opacity-75">Autentikasi, School Context, Database, Drive dan Transaction Engine</div>
             </div>
           </div>
-          <div class="mt-3">
-            <span
-              id="loadingText"
-              class="
-                badge
-                rounded-pill
-                bg-white
-                bg-opacity-10
-                text-white
-                px-3
-                py-2
-              ">
-              Menghubungkan...
-            </span>
-          </div>
+          <div class="mt-3"><span id="loadingText" class="badge rounded-pill bg-white bg-opacity-10 text-white px-3 py-2">Menghubungkan...</span></div>
         </div>
       </div>
     </div>
-    <!-- =====================================================
-         KOLOM KIRI
-         SCHOOL CONTEXT
-         ===================================================== -->
+
     <div class="col-12 col-xl-6">
       <div class="card border-0 shadow-sm rounded-4 h-100">
         <div class="card-body">
-          <div class="fw-bold mb-3 text-primary">
-            <i class="bi bi-building me-2"></i>
-            School Context
-          </div>
+          <div class="fw-bold mb-3 text-primary"><i class="bi bi-building me-2"></i>School Context</div>
           <div class="row g-2">
-            <!-- SEKOLAH -->
-            <div class="col-12">
-              <div class="p-3 rounded-3 bg-light">
-                <div class="small fw-bold text-secondary">
-                  SEKOLAH
-                </div>
-                <div
-                  id="schoolName"
-                  class="small fw-bold text-dark mt-1">
-                  -
-                </div>
-              </div>
-            </div>
-            <!-- NPSN -->
-            <div class="col-6">
-              <div class="p-3 rounded-3 bg-light">
-                <div class="small fw-bold text-secondary">
-                  NPSN
-                </div>
-                <div
-                  id="schoolNpsn"
-                  class="small fw-bold text-dark mt-1">
-                  -
-                </div>
-              </div>
-            </div>
-            <!-- ROLE -->
-            <div class="col-6">
-              <div class="p-3 rounded-3 bg-light">
-                <div class="small fw-bold text-secondary">
-                  ROLE
-                </div>
-                <div
-                  id="userRole"
-                  class="small fw-bold text-dark mt-1">
-                  -
-                </div>
-              </div>
-            </div>
-            <!-- NAMA PENGGUNA -->
-            <div class="col-12">
-              <div class="p-3 rounded-3 bg-light">
-                <div class="small fw-bold text-secondary">
-                  NAMA PENGGUNA
-                </div>
-                <div
-                  id="userName"
-                  class="small fw-bold text-dark mt-1">
-                  -
-                </div>
-              </div>
-            </div>
-            <!-- EMAIL -->
-            <div class="col-12">
-              <div class="p-3 rounded-3 bg-light">
-                <div class="small fw-bold text-secondary">
-                  EMAIL
-                </div>
-                <div
-                  id="userEmail"
-                  class="small fw-semibold text-dark mt-1 text-break">
-                  -
-                </div>
-              </div>
-            </div>
+            <div class="col-12"><div class="p-3 rounded-3 bg-light"><div class="small fw-bold text-secondary">SEKOLAH</div><div id="schoolName" class="small fw-bold text-dark mt-1">-</div></div></div>
+            <div class="col-6"><div class="p-3 rounded-3 bg-light"><div class="small fw-bold text-secondary">NPSN</div><div id="schoolNpsn" class="small fw-bold text-dark mt-1">-</div></div></div>
+            <div class="col-6"><div class="p-3 rounded-3 bg-light"><div class="small fw-bold text-secondary">ROLE</div><div id="userRole" class="small fw-bold text-dark mt-1">-</div></div></div>
+            <div class="col-12"><div class="p-3 rounded-3 bg-light"><div class="small fw-bold text-secondary">NAMA PENGGUNA</div><div id="userName" class="small fw-bold text-dark mt-1">-</div></div></div>
+            <div class="col-12"><div class="p-3 rounded-3 bg-light"><div class="small fw-bold text-secondary">EMAIL</div><div id="userEmail" class="small fw-semibold text-dark mt-1 text-break">-</div></div></div>
           </div>
-          <!-- ERROR -->
-          <div
-            id="loginError"
-            class="alert alert-danger mt-3 d-none small">
-          </div>
+          <div id="loginError" class="alert alert-danger mt-3 d-none small"></div>
         </div>
       </div>
     </div>
-    <!-- =====================================================
-         KOLOM KANAN
-         PENGUJIAN KONEKSI
-         ===================================================== -->
+
     <div class="col-12 col-xl-6">
       <div class="card border-0 shadow-sm rounded-4 h-100">
         <div class="card-body">
-          <div class="fw-bold mb-3 text-primary">
-            <i class="bi bi-hdd-stack me-2"></i>
-            Pengujian Koneksi
-          </div>
+          <div class="fw-bold mb-3 text-primary"><i class="bi bi-hdd-stack me-2"></i>Pengujian Koneksi</div>
           <div class="d-grid gap-2">
-            <button
-              type="button"
-              id="btnResource"
-              class="btn btn-outline-primary"
-              onclick="testResources()">
-              TEST SCHOOL RESOURCES
-            </button>
-            <button
-              type="button"
-              id="btnContext"
-              class="btn btn-outline-primary"
-              onclick="testContext()">
-              TEST SCHOOL CONTEXT
-            </button>
-            <button
-              type="button"
-              id="btnTransaction"
-              class="btn btn-outline-primary"
-              onclick="testTransaction()">
-              TEST TRANSACTION ENGINE
-            </button>
+            <button type="button" id="btnResource" class="btn btn-outline-primary" onclick="testResources()">TEST SCHOOL RESOURCES</button>
+            <button type="button" id="btnContext" class="btn btn-outline-primary" onclick="testContext()">TEST SCHOOL CONTEXT</button>
+            <button type="button" id="btnTransaction" class="btn btn-outline-primary" onclick="testTransaction()">TEST TRANSACTION ENGINE</button>
           </div>
         </div>
       </div>
     </div>
-    <!-- =====================================================
-         SETUP RESOURCE SEKOLAH — FULL WIDTH
-         ===================================================== -->
+
     <div class="col-12">
       <div class="card border-0 shadow-sm rounded-4">
         <div class="card-body">
-          <div class="fw-bold mb-3 text-primary">
-            <i class="bi bi-gear me-2"></i>
-            Setup Resource Sekolah
-          </div>
+          <div class="fw-bold mb-3 text-primary"><i class="bi bi-gear me-2"></i>Setup & Sinkronisasi Resource Sekolah</div>
           <div class="row g-2">
-            <div class="col-12 col-md-4">
-              <button
-                type="button"
-                id="btnSetupDatabase"
-                class="btn btn-primary w-100"
-                onclick="setupDatabaseSekolahSaya()">
-                SETUP DATABASE SEKOLAH
-              </button>
-            </div>
-            <div class="col-12 col-md-4">
-              <button
-                type="button"
-                id="btnSetupDrive"
-                class="btn btn-primary w-100"
-                onclick="setupDriveSekolahSaya()">
-                SETUP FOLDER DRIVE
-              </button>
-            </div>
-            <div class="col-12 col-md-4">
-              <button
-                type="button"
-                id="btnRefreshContext"
-                class="btn btn-outline-primary w-100"
-                onclick="refreshSchoolContext()">
-                REFRESH SCHOOL CONTEXT
-              </button>
-            </div>
+            <div class="col-12 col-md-3"><button type="button" id="btnSetupDatabase" class="btn btn-primary w-100" onclick="setupDatabaseSekolahSaya()">SETUP DATABASE SEKOLAH</button></div>
+            <div class="col-12 col-md-3"><button type="button" id="btnSetupDrive" class="btn btn-primary w-100" onclick="setupDriveSekolahSaya()">SETUP FOLDER DRIVE</button></div>
+            <div class="col-12 col-md-3"><button type="button" id="btnRepairUsers" class="btn btn-success w-100 d-none" onclick="repairActiveSchoolUsers()">REPAIR AKSES USER</button></div>
+            <div class="col-12 col-md-3"><button type="button" id="btnRefreshContext" class="btn btn-outline-primary w-100" onclick="refreshSchoolContext()">REFRESH SCHOOL CONTEXT</button></div>
           </div>
+          <div class="small text-muted mt-3"><i class="bi bi-info-circle me-1"></i>Repair hanya tersedia untuk ADMIN_SEKOLAH dan memperbaiki binding serta permission Spreadsheet bagi user ACTIVE di sekolah aktif.</div>
         </div>
       </div>
     </div>
-    <!-- =====================================================
-         HASIL PENGUJIAN — FULL WIDTH
-         ===================================================== -->
+
     <div class="col-12">
       <div class="card border-0 shadow-sm rounded-4">
         <div class="card-body">
-          <div class="
-            d-flex
-            justify-content-between
-            align-items-center
-            mb-2
-          ">
-            <div class="fw-bold text-primary">
-              Hasil Pengujian
-            </div>
-            <span
-              class="
-                badge
-                rounded-pill
-                bg-warning-subtle
-                text-warning-emphasis
-              ">
-              Diagnostic
-            </span>
-          </div>
-          <pre
-            id="result"
-            class="
-              mb-0
-              p-3
-              rounded-3
-              bg-dark
-              text-light
-              small
-              overflow-auto
-            ">Belum ada pengujian.</pre>
+          <div class="d-flex justify-content-between align-items-center mb-2"><div class="fw-bold text-primary">Hasil Pengujian</div><span class="badge rounded-pill bg-warning-subtle text-warning-emphasis">Diagnostic</span></div>
+          <pre id="result" class="mb-0 p-3 rounded-3 bg-dark text-light small overflow-auto">Belum ada pengujian.</pre>
         </div>
       </div>
     </div>

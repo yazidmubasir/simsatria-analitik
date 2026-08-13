@@ -1,514 +1,194 @@
 <script>
   let CURRENT_USER_CONTEXT = null;
-  /* =========================================================
-     SHOW RESULT
-     ========================================================= */
+
   function showResult(value) {
-    const el =
-      document.getElementById(
-        'result'
-      );
+    const el = document.getElementById('result');
     if (!el) return;
-    el.textContent =
-      typeof value === 'string'
-        ? value
-        : JSON.stringify(
-          value,
-          null,
-          2
-        );
+    el.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
   }
-  /* =========================================================
-     BUTTON LOADING
-     ========================================================= */
-  function setButtonLoading(
-    id,
-    loading,
-    text
-  ) {
-    const btn =
-      document.getElementById(
-        id
-      );
+
+  function setButtonLoading(id, loading, text) {
+    const btn = document.getElementById(id);
     if (!btn) return;
-    btn.disabled =
-      loading;
+    btn.disabled = loading;
     if (loading) {
-      btn.dataset.oldText =
-        btn.innerHTML;
-      btn.innerHTML =
-        '<span class="spinner-border spinner-border-sm me-2"></span>' +
-        text;
-    }
-    else {
-      btn.innerHTML =
-        btn.dataset.oldText ||
-        text;
+      btn.dataset.oldText = btn.innerHTML;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>' + text;
+    } else {
+      btn.innerHTML = btn.dataset.oldText || text;
     }
   }
-  /* =========================================================
-     LOAD APPLICATION
-     ========================================================= */
+
   function loadApplication() {
-    console.log(
-      'SIM SATRIA: loadApplication()'
-    );
+    console.log('SIM SATRIA: loadApplication()');
     google.script.run
-      .withSuccessHandler(
-        function (result) {
-          console.log(
-            'getLoginInfo() result:',
-            result
-          );
-          if (
-            !result ||
-            !result.success
-          ) {
-            showLoginError(
-              result &&
-                result.message
-                ? result.message
-                : 'Autentikasi gagal.'
-            );
-            return;
-          }
-          /*
-           * ===============================================
-           * SIMPAN CONTEXT
-           * ===============================================
-           */
-          CURRENT_USER_CONTEXT =
-            result;
-          /*
-           * ===============================================
-           * SEKOLAH
-           * ===============================================
-           */
-          const schoolName =
-            document.getElementById(
-              'schoolName'
-            );
-          if (schoolName) {
-            schoolName.textContent =
-              result.school &&
-                result.school.namaSekolah
-                ? result.school.namaSekolah
-                : '-';
-          }
-          /*
-           * ===============================================
-           * NPSN
-           * ===============================================
-           */
-          const schoolNpsn =
-            document.getElementById(
-              'schoolNpsn'
-            );
-          if (schoolNpsn) {
-            schoolNpsn.textContent =
-              result.school &&
-                result.school.npsn
-                ? result.school.npsn
-                : '-';
-          }
-          /*
-           * ===============================================
-           * USER
-           * ===============================================
-           */
-          const userName =
-            document.getElementById(
-              'userName'
-            );
-          if (userName) {
-            userName.textContent =
-              result.user &&
-                result.user.nama
-                ? result.user.nama
-                : '-';
-          }
-          /*
-           * ===============================================
-           * ROLE
-           * ===============================================
-           */
-          const userRole =
-            document.getElementById(
-              'userRole'
-            );
-          if (userRole) {
-            userRole.textContent =
-              result.user &&
-                result.user.role
-                ? result.user.role
-                : '-';
-          }
-          /*
-           * ===============================================
-           * EMAIL
-           * ===============================================
-           */
-          const userEmail =
-            document.getElementById(
-              'userEmail'
-            );
-          if (userEmail) {
-            userEmail.textContent =
-              result.user &&
-                result.user.email
-                ? result.user.email
-                : '-';
-          }
-          /*
-           * ===============================================
-           * STATUS
-           * ===============================================
-           */
-          const loadingText =
-            document.getElementById(
-              'loadingText'
-            );
-          if (loadingText) {
-            loadingText.textContent =
-              'Terhubung';
-          }
-          console.log(
-            'School Context berhasil ditampilkan.'
-          );
+      .withSuccessHandler(function(result) {
+        console.log('getLoginInfo() result:', result);
+        if (!result || !result.success) {
+          showLoginError(result && result.message ? result.message : 'Autentikasi gagal.');
+          return;
         }
-      )
-      .withFailureHandler(
-        function (error) {
-          console.error(
-            'getLoginInfo() ERROR:',
-            error
-          );
-          showLoginError(
-            error &&
-              error.message
-              ? error.message
-              : 'Gagal memperoleh informasi login.'
-          );
+        CURRENT_USER_CONTEXT = result;
+        const schoolName = document.getElementById('schoolName');
+        if (schoolName) schoolName.textContent = result.school && result.school.namaSekolah ? result.school.namaSekolah : '-';
+        const schoolNpsn = document.getElementById('schoolNpsn');
+        if (schoolNpsn) schoolNpsn.textContent = result.school && result.school.npsn ? result.school.npsn : '-';
+        const userName = document.getElementById('userName');
+        if (userName) userName.textContent = result.user && result.user.nama ? result.user.nama : '-';
+        const userRole = document.getElementById('userRole');
+        if (userRole) userRole.textContent = result.user && result.user.role ? result.user.role : '-';
+        const userEmail = document.getElementById('userEmail');
+        if (userEmail) userEmail.textContent = result.user && result.user.email ? result.user.email : '-';
+        const loadingText = document.getElementById('loadingText');
+        if (loadingText) loadingText.textContent = 'Terhubung';
+
+        // Hanya ADMIN_SEKOLAH yang boleh memperbaiki permission user sekolah.
+        const repairBtn = document.getElementById('btnRepairUsers');
+        if (repairBtn) {
+          const role = String(result.user && result.user.role || '').trim().toUpperCase();
+          repairBtn.classList.toggle('d-none', role !== 'ADMIN_SEKOLAH');
         }
-      )
+        console.log('School Context berhasil ditampilkan.');
+      })
+      .withFailureHandler(function(error) {
+        console.error('getLoginInfo() ERROR:', error);
+        showLoginError(error && error.message ? error.message : 'Gagal memperoleh informasi login.');
+      })
       .getLoginInfo();
   }
-  /* =========================================================
-     LOGIN ERROR
-     ========================================================= */
-  function showLoginError(
-    message
-  ) {
-    const loadingText =
-      document.getElementById(
-        'loadingText'
-      );
-    if (loadingText) {
-      loadingText.textContent =
-        'Gagal terhubung';
-    }
-    const el =
-      document.getElementById(
-        'loginError'
-      );
+
+  function showLoginError(message) {
+    const loadingText = document.getElementById('loadingText');
+    if (loadingText) loadingText.textContent = 'Gagal terhubung';
+    const el = document.getElementById('loginError');
     if (!el) {
-      console.error(
-        'loginError element tidak ditemukan:',
-        message
-      );
+      console.error('loginError element tidak ditemukan:', message);
       return;
     }
-    el.textContent =
-      message ||
-      'Terjadi kesalahan.';
-    el.classList.remove(
-      'hidden'
-    );
+    el.textContent = message || 'Terjadi kesalahan.';
+    el.classList.remove('d-none');
   }
-  /* =========================================================
-     TEST SCHOOL RESOURCES
-     ========================================================= */
+
   function testResources() {
-    setButtonLoading(
-      'btnResource',
-      true,
-      'Testing...'
-    );
+    setButtonLoading('btnResource', true, 'Testing...');
     google.script.run
-      .withSuccessHandler(
-        function (result) {
-          setButtonLoading(
-            'btnResource',
-            false,
-            'TEST SCHOOL RESOURCES'
-          );
-          showResult(
-            result
-          );
-        }
-      )
-      .withFailureHandler(
-        function (error) {
-          setButtonLoading(
-            'btnResource',
-            false,
-            'TEST SCHOOL RESOURCES'
-          );
-          showResult({
-            success:
-              false,
-            error:
-              error &&
-                error.message
-                ? error.message
-                : 'Testing resources gagal.'
-          });
-        }
-      )
+      .withSuccessHandler(function(result) {
+        setButtonLoading('btnResource', false, 'TEST SCHOOL RESOURCES');
+        showResult(result);
+      })
+      .withFailureHandler(function(error) {
+        setButtonLoading('btnResource', false, 'TEST SCHOOL RESOURCES');
+        showResult({ success: false, error: error && error.message ? error.message : 'Testing resources gagal.' });
+      })
       .testSchoolResources();
   }
-  /* =========================================================
-     TEST SCHOOL CONTEXT
-     ========================================================= */
+
   function testContext() {
-    setButtonLoading(
-      'btnContext',
-      true,
-      'Testing...'
-    );
+    setButtonLoading('btnContext', true, 'Testing...');
     google.script.run
-      .withSuccessHandler(
-        function (result) {
-          setButtonLoading(
-            'btnContext',
-            false,
-            'TEST SCHOOL CONTEXT'
-          );
-          showResult(
-            result
-          );
-        }
-      )
-      .withFailureHandler(
-        function (error) {
-          setButtonLoading(
-            'btnContext',
-            false,
-            'TEST SCHOOL CONTEXT'
-          );
-          showResult({
-            success:
-              false,
-            error:
-              error &&
-                error.message
-                ? error.message
-                : 'Testing context gagal.'
-          });
-        }
-      )
+      .withSuccessHandler(function(result) {
+        setButtonLoading('btnContext', false, 'TEST SCHOOL CONTEXT');
+        showResult(result);
+      })
+      .withFailureHandler(function(error) {
+        setButtonLoading('btnContext', false, 'TEST SCHOOL CONTEXT');
+        showResult({ success: false, error: error && error.message ? error.message : 'Testing context gagal.' });
+      })
       .testSchoolContextSpeed();
   }
-  /* =========================================================
-     TEST TRANSACTION
-     ========================================================= */
+
   function testTransaction() {
-    setButtonLoading(
-      'btnTransaction',
-      true,
-      'Testing...'
-    );
+    setButtonLoading('btnTransaction', true, 'Testing...');
     google.script.run
-      .withSuccessHandler(
-        function (result) {
-          setButtonLoading(
-            'btnTransaction',
-            false,
-            'TEST TRANSACTION ENGINE'
-          );
-          showResult(
-            result
-          );
-        }
-      )
-      .withFailureHandler(
-        function (error) {
-          setButtonLoading(
-            'btnTransaction',
-            false,
-            'TEST TRANSACTION ENGINE'
-          );
-          showResult({
-            success:
-              false,
-            error:
-              error &&
-                error.message
-                ? error.message
-                : 'Transaction Engine gagal.'
-          });
-        }
-      )
+      .withSuccessHandler(function(result) {
+        setButtonLoading('btnTransaction', false, 'TEST TRANSACTION ENGINE');
+        showResult(result);
+      })
+      .withFailureHandler(function(error) {
+        setButtonLoading('btnTransaction', false, 'TEST TRANSACTION ENGINE');
+        showResult({ success: false, error: error && error.message ? error.message : 'Transaction Engine gagal.' });
+      })
       .runTestTransaction();
   }
-  /* =========================================================
-     SETUP DATABASE
-     ========================================================= */
+
   function setupDatabaseSekolahSaya() {
-    const btn =
-      document.getElementById(
-        'btnSetupDatabase'
-      );
+    const btn = document.getElementById('btnSetupDatabase');
     if (!btn) return;
-    btn.disabled =
-      true;
-    btn.innerHTML =
-      '<span class="spinner-border spinner-border-sm me-2"></span>' +
-      'Menyiapkan Database...';
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menyiapkan Database...';
     google.script.run
-      .withSuccessHandler(
-        function (result) {
-          btn.disabled =
-            false;
-          btn.innerHTML =
-            'SETUP DATABASE SEKOLAH';
-          showResult(
-            result
-          );
-        }
-      )
-      .withFailureHandler(
-        function (error) {
-          btn.disabled =
-            false;
-          btn.innerHTML =
-            'SETUP DATABASE SEKOLAH';
-          showResult({
-            success:
-              false,
-            error:
-              error &&
-                error.message
-                ? error.message
-                : 'Setup database gagal.'
-          });
-        }
-      )
+      .withSuccessHandler(function(result) {
+        btn.disabled = false;
+        btn.innerHTML = 'SETUP DATABASE SEKOLAH';
+        showResult(result);
+      })
+      .withFailureHandler(function(error) {
+        btn.disabled = false;
+        btn.innerHTML = 'SETUP DATABASE SEKOLAH';
+        showResult({ success: false, error: error && error.message ? error.message : 'Setup database gagal.' });
+      })
       .setupDatabaseSekolahSaya();
   }
-  /* =========================================================
-     SETUP DRIVE
-     ========================================================= */
+
   function setupDriveSekolahSaya() {
-    const btn =
-      document.getElementById(
-        'btnSetupDrive'
-      );
+    const btn = document.getElementById('btnSetupDrive');
     if (!btn) return;
-    btn.disabled =
-      true;
-    btn.innerHTML =
-      '<span class="spinner-border spinner-border-sm me-2"></span>' +
-      'Menyiapkan Drive...';
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menyiapkan Drive...';
     google.script.run
-      .withSuccessHandler(
-        function (result) {
-          btn.disabled =
-            false;
-          btn.innerHTML =
-            'SETUP FOLDER DRIVE';
-          showResult(
-            result
-          );
-        }
-      )
-      .withFailureHandler(
-        function (error) {
-          btn.disabled =
-            false;
-          btn.innerHTML =
-            'SETUP FOLDER DRIVE';
-          showResult({
-            success:
-              false,
-            error:
-              error &&
-                error.message
-                ? error.message
-                : 'Setup Drive gagal.'
-          });
-        }
-      )
+      .withSuccessHandler(function(result) {
+        btn.disabled = false;
+        btn.innerHTML = 'SETUP FOLDER DRIVE';
+        showResult(result);
+      })
+      .withFailureHandler(function(error) {
+        btn.disabled = false;
+        btn.innerHTML = 'SETUP FOLDER DRIVE';
+        showResult({ success: false, error: error && error.message ? error.message : 'Setup Drive gagal.' });
+      })
       .setupDriveSekolahSaya();
   }
-  /* =========================================================
-     REFRESH SCHOOL CONTEXT
-     ========================================================= */
-  function refreshSchoolContext() {
-    const btn =
-      document.getElementById(
-        'btnRefreshContext'
-      );
+
+  function repairActiveSchoolUsers() {
+    const btn = document.getElementById('btnRepairUsers');
     if (!btn) return;
-    btn.disabled =
-      true;
-    btn.innerHTML =
-      '<span class="spinner-border spinner-border-sm me-2"></span>' +
-      'Refreshing...';
+    if (!confirm('Perbaiki binding dan akses Spreadsheet untuk seluruh user ACTIVE di sekolah ini?')) return;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memperbaiki...';
     google.script.run
-      .withSuccessHandler(
-        function (result) {
-          btn.disabled =
-            false;
-          btn.innerHTML =
-            'REFRESH SCHOOL CONTEXT';
-          showResult(
-            result
-          );
-          /*
-           * Reload halaman supaya frontend
-           * menggunakan School Context terbaru.
-           */
-          setTimeout(
-            function () {
-              location.reload();
-            },
-            1000
-          );
-        }
-      )
-      .withFailureHandler(
-        function (error) {
-          btn.disabled =
-            false;
-          btn.innerHTML =
-            'REFRESH SCHOOL CONTEXT';
-          showResult({
-            success:
-              false,
-            error:
-              error &&
-                error.message
-                ? error.message
-                : 'Refresh School Context gagal.'
-          });
-        }
-      )
+      .withSuccessHandler(function(result) {
+        btn.disabled = false;
+        btn.innerHTML = 'REPAIR AKSES USER';
+        showResult(result);
+      })
+      .withFailureHandler(function(error) {
+        btn.disabled = false;
+        btn.innerHTML = 'REPAIR AKSES USER';
+        showResult({ success: false, error: error && error.message ? error.message : 'Repair user gagal.' });
+      })
+      .repairAllActiveSchoolUsersAccess();
+  }
+
+  function refreshSchoolContext() {
+    const btn = document.getElementById('btnRefreshContext');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Refreshing...';
+    google.script.run
+      .withSuccessHandler(function(result) {
+        btn.disabled = false;
+        btn.innerHTML = 'REFRESH SCHOOL CONTEXT';
+        showResult(result);
+        setTimeout(function() { location.reload(); }, 1000);
+      })
+      .withFailureHandler(function(error) {
+        btn.disabled = false;
+        btn.innerHTML = 'REFRESH SCHOOL CONTEXT';
+        showResult({ success: false, error: error && error.message ? error.message : 'Refresh School Context gagal.' });
+      })
       .refreshMySchoolContext();
   }
-  /* =========================================================
-     INIT HALAMAN KONEKSI
-     =========================================================
-     PENTING:
-     Halaman ini dimasukkan secara dinamis ke #content.
-     Karena itu JANGAN menggunakan:
-     document.addEventListener(
-       'DOMContentLoaded',
-       loadApplication
-     );
-     karena DOMContentLoaded sudah terjadi.
-     Kita panggil langsung.
-     ========================================================= */
+
   function initKoneksiPage() {
     loadApplication();
   }
