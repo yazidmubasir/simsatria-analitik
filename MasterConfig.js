@@ -8,15 +8,14 @@
  * GURU / WALI_KELAS / KARYAWAN / SISWA TIDAK disimpan di MASTER.
  * Mereka dikelola pada USERS di Spreadsheet sekolah masing-masing.
  *
- * PENTING:
- * Web App harus DEPLOY "Execute as me" (pemilik aplikasi), sehingga
- * pembacaan MASTER dilakukan oleh akun pemilik aplikasi, bukan oleh akun
- * guru/admin yang sedang login. Identitas pengguna tetap diambil dari
- * Session.getActiveUser().getEmail().
+ * PENTING UNTUK AUTENTIKASI:
+ * Web App menggunakan "User accessing the web app" agar
+ * Session.getActiveUser().getEmail() dapat mengenali akun yang sedang login.
+ * Karena itu akun pengguna yang perlu login harus memiliki akses minimal
+ * sebagai Viewer ke Spreadsheet MASTER.
  *
- * Dengan pola ini login ADMIN_SEKOLAH tidak lagi bergantung pada
- * syncMasterAuthRegistry(). Fungsi sinkronisasi hanya dipertahankan sebagai
- * alat maintenance/diagnostik dan bukan bagian dari alur login.
+ * MASTER dibaca LANGSUNG pada saat login. Login TIDAK bergantung pada
+ * syncMasterAuthRegistry(). Fungsi sinkronisasi hanya maintenance/diagnostik.
  */
 
 const MASTER_AUTH_REGISTRY = {

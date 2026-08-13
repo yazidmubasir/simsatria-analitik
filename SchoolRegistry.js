@@ -1,9 +1,13 @@
 /**
  * SCHOOL REGISTRY
  *
- * MASTER dibaca langsung oleh akun pemilik aplikasi.
- * Tidak ada fallback proxy untuk autentikasi login karena proxy/cache
- * membuat perubahan ADMIN_SEKOLAH tidak langsung terlihat.
+ * MASTER dibaca LANGSUNG pada setiap proses autentikasi.
+ * Identitas pengguna berasal dari Session.getActiveUser(), sehingga Web App
+ * harus menggunakan "User accessing the web app".
+ *
+ * Tidak ada fallback registry/proxy yang menjadi sumber kebenaran login.
+ * syncMasterAuthRegistry() hanya maintenance/diagnostik dan TIDAK diperlukan
+ * agar ADMIN_SEKOLAH dapat login.
  */
 function getMasterSpreadsheet_() {
   const id = getMasterSpreadsheetId_();
@@ -11,8 +15,7 @@ function getMasterSpreadsheet_() {
     return SpreadsheetApp.openById(id);
   } catch (e) {
     throw new Error(
-      "Spreadsheet MASTER tidak dapat dibuka oleh akun eksekusi aplikasi. " +
-      "Pastikan deployment Web App menggunakan Execute as: Me (pemilik aplikasi). Detail: " + e.message,
+      "Spreadsheet MASTER tidak dapat dibuka oleh akun pengguna. Pastikan akun pengguna memiliki akses minimal Viewer ke Spreadsheet MASTER. Detail: " + e.message,
     );
   }
 }
