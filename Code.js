@@ -59,16 +59,6 @@ function getSchoolContextInfo() {
   return { success: true, email: c.email, userId: c.userId, nip: c.nip, nama: c.nama, role: c.role, npsn: c.npsn, sekolah: c.school.namaSekolah, spreadsheetId: c.school.spreadsheetId, driveFolderId: c.school.driveFolderId };
 }
 
-function testSchoolResources() {
-  const c = getCurrentUserContext();
-  const result = { email: c.email, npsn: c.npsn, sekolah: c.school.namaSekolah, spreadsheet: { success: false, id: c.school.spreadsheetId, name: "", error: "" }, drive: { success: false, id: c.school.driveFolderId, name: "", error: "" } };
-  try { const ss = SpreadsheetApp.openById(c.school.spreadsheetId); result.spreadsheet.success = true; result.spreadsheet.name = ss.getName(); } catch (e) { result.spreadsheet.error = e.message; }
-  try { const folder = DriveApp.getFolderById(c.school.driveFolderId); result.drive.success = true; result.drive.name = folder.getName(); } catch (e) { result.drive.error = e.message; }
-  return result;
-}
-
-function testSchoolContextSpeed() { const start = Date.now(); return { elapsedMs: Date.now() - start, context: getSchoolContextInfo() }; }
-
 function getKoneksiView() {
   const html = HtmlService.createHtmlOutputFromFile("koneksi").getContent();
   let js = HtmlService.createHtmlOutputFromFile("koneksi_js").getContent();

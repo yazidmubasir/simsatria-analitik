@@ -303,17 +303,3 @@ function sheetValuesToObjects_(sheet) {
 function registrySafeKey_(value) {
   return String(value || "").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "_");
 }
-
-function testMasterSpreadsheet() {
-  const masterId = getMasterSpreadsheetId_();
-  const ss = SpreadsheetApp.openById(masterId);
-  const sheet = ss.getSheetByName("SCHOOLS") || ss.getSheetByName("schools");
-  return {
-    success: true,
-    spreadsheetId: masterId,
-    spreadsheetName: ss.getName(),
-    sheet: sheet.getName(),
-    lastRow: sheet.getLastRow(),
-    lastColumn: sheet.getLastColumn(),
-  };
-}
