@@ -3,15 +3,15 @@
  * SIM SATRIA - SCHOOL DATA ISOLATION
  * ============================================================
  * Prinsip utama:
- *
- * 1. ADMIN_SEKOLAH ditentukan HANYA dari MASTER / registry autentikasi.
- * 2. Setelah sekolah ditemukan dari NPSN admin, seluruh data bisnis:
+ * 1. SUPERADMIN adalah pemilik aplikasi.
+ * 2. ADMIN_SEKOLAH ditentukan HANYA dari MASTER / registry autentikasi.
+ * 3. Setelah sekolah ditemukan dari NPSN admin, seluruh data bisnis:
  *    GURU, KARYAWAN, SISWA, KELAS, USERS, CONFIG dan TRX_* wajib
  *    dibaca dari Spreadsheet sekolah tersebut.
- * 3. Binding lama ketika akun berubah dari GURU menjadi ADMIN_SEKOLAH
+ * 4. Binding lama ketika akun berubah dari GURU menjadi ADMIN_SEKOLAH
  *    tidak boleh lagi menentukan identitas pengguna.
- * 4. Helper di file ini sengaja server-side agar modul baru tidak perlu
- *    mengetahui ID Spreadsheet sekolah secara manual.
+ * 5. Helper di file ini server-side agar modul baru tidak perlu mengetahui
+ *    ID Spreadsheet sekolah secara manual.
  * ============================================================
  */
 
@@ -37,8 +37,8 @@ const SCHOOL_DATA_ISOLATION_CONFIG = {
 };
 
 /**
- * ADMIN_SEKOLAH tidak boleh membawa identitas GURU lama.
- * Jika email ditemukan di ADMIN_SEKOLAH, binding lokal lama dihapus.
+ * ADMIN_SEKOLAH/SUPERADMIN tidak boleh membawa identitas GURU lama.
+ * Jika email ditemukan di registry admin, binding lokal lama dihapus.
  * Data historis pada sheet GURU tidak dihapus; yang dihapus hanya
  * hubungan autentikasi lama email -> GURU.
  */
@@ -49,17 +49,18 @@ function enforceAdminIdentityIsolation_() {
 
   const role = normalizeAuthRole_(admin.ROLE);
   const status = String(admin.STATUS || "").trim().toUpperCase();
+  const isSuperAdmin = typeof isSuperAdminEmail_ === "function" && isSuperAdminEmail_(email);
 
-  if (role !== "ADMIN_SEKOLAH") {
+  if (!isSuperAdmin && role !== "ADMIN_SEKOLAH") {
     return null;
   }
 
   if (status !== "ACTIVE") {
-    throw new Error("Akun ADMIN_SEKOLAH tidak aktif.");
+    throw new Error("Akun administrator tidak aktif.");
   }
 
-  // Putus hubungan autentikasi lama, misalnya masayid11 yang dahulu
-  // tercatat sebagai GURU/AYA. Tidak menghapus data GURU historis.
+  // Putus hubungan autentikasi lama, misalnya akun yang dahulu tercatat
+  // sebagai GURU/AYA. Tidak menghapus data GURU historis.
   const bindings = getUserBindings_();
   if (Object.prototype.hasOwnProperty.call(bindings, email)) {
     delete bindings[email];
@@ -134,10 +135,6 @@ function getActiveSchoolReferenceData_(sheetName) {
   });
 }
 
-/**
- * Audit sumber data untuk memastikan akun hanya menunjuk ke database
- * sekolahnya sendiri.
- */
 function auditCurrentSchoolDataSource() {
   const context = getCurrentUserContext();
   const ss = getActiveSchoolSpreadsheet_();
@@ -161,14 +158,10 @@ function auditCurrentSchoolDataSource() {
   };
 }
 
-/**
- * Jalankan sekali setelah perubahan role akun, atau kapan saja untuk
- * memastikan akun admin tidak lagi membawa binding GURU lama.
- */
 function repairCurrentAdminIdentity() {
   const admin = enforceAdminIdentityIsolation_();
   if (!admin) {
-    throw new Error("Akun Google aktif bukan ADMIN_SEKOLAH.");
+    throw new Error("Akun Google aktif bukan ADMIN_SEKOLAH/SUPERADMIN.");
   }
 
   const context = getCurrentUserContext();
@@ -180,6 +173,6 @@ function repairCurrentAdminIdentity() {
     sekolah: context.school.namaSekolah,
     spreadsheetId: context.school.spreadsheetId,
     message:
-      "Identitas ADMIN_SEKOLAH sudah dipisahkan dari binding GURU lama. Data GURU historis tidak dihapus.",
+      "Identitas administrator sudah dipisahkan dari binding GURU lama. Data GURU historis tidak dihapus.",
   };
 }

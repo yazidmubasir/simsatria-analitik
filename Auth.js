@@ -1,12 +1,16 @@
 /**
  * SIM SATRIA - AUTHENTICATION
  *
- * MASTER hanya menjadi sumber otoritatif untuk ADMIN_SEKOLAH.
- * Pengguna sekolah (GURU/WALI_KELAS/KARYAWAN) memakai binding lokal
- * yang diregistrasikan oleh ADMIN_SEKOLAH ke Script Properties.
+ * SKEMA FINAL:
+ * 1. SUPERADMIN hanya satu akun pemilik aplikasi.
+ * 2. ADMIN_SEKOLAH ditentukan dari MASTER / registry autentikasi.
+ * 3. GURU/WALI_KELAS/KARYAWAN/SISWA ditentukan dari USERS pada
+ *    Spreadsheet sekolah masing-masing.
+ * 4. Binding lokal hanya menjadi locator sekolah untuk user non-admin.
+ * 5. Data bisnis tidak pernah memilih Spreadsheet dari frontend.
  *
- * Web App tetap USER_ACCESSING agar Session.getActiveUser() dapat
- * mengenali akun Google pengguna. User sekolah tidak membaca MASTER.
+ * Web App tetap USER_ACCESSING agar Session.getActiveUser() mengenali
+ * akun Google pengguna.
  */
 const AUTH_CONFIG = {
   ADMIN_SHEET: "ADMIN_SEKOLAH",
@@ -14,9 +18,10 @@ const AUTH_CONFIG = {
   USERS_SHEET: "USERS",
   USER_BINDINGS_PROPERTY: "SIM_SATRIA_USER_BINDINGS_V2",
   ACTIVE_STATUS: "ACTIVE",
+  SUPERADMIN_EMAIL: "yazid.mubasir12@admin.sma.belajar.id",
   CACHE_SECONDS: 21600,
-  CONTEXT_CACHE_VERSION: "V6",
-  ADMIN_CACHE_VERSION: "V2",
+  CONTEXT_CACHE_VERSION: "V7",
+  ADMIN_CACHE_VERSION: "V3",
 };
 
 function normalizeEmail_(email) {
@@ -42,11 +47,15 @@ function getGoogleUserEmail_() {
   return email;
 }
 
+function isSuperAdminEmail_(email) {
+  return normalizeEmail_(email) === normalizeEmail_(AUTH_CONFIG.SUPERADMIN_EMAIL);
+}
+
 function getAdminSheet_() {
   const sheet = getMasterSpreadsheet_().getSheetByName(AUTH_CONFIG.ADMIN_SHEET);
   if (!sheet) {
     throw new Error(
-      "Sheet ADMIN_SEKOLAH tidak ditemukan pada Spreadsheet Master. Jalankan setupMasterRegistry().",
+      "Sheet ADMIN_SEKOLAH tidak ditemukan pada Spreadsheet Master. Jalankan syncMasterAuthRegistry().",
     );
   }
   return sheet;
@@ -56,7 +65,7 @@ function getSchoolsSheet_() {
   const sheet = getMasterSpreadsheet_().getSheetByName(AUTH_CONFIG.SCHOOLS_SHEET);
   if (!sheet) {
     throw new Error(
-      "Sheet SCHOOLS tidak ditemukan pada Spreadsheet Master. Jalankan setupMasterRegistry().",
+      "Sheet SCHOOLS tidak ditemukan pada Spreadsheet Master. Jalankan syncMasterAuthRegistry().",
     );
   }
   return sheet;
@@ -116,6 +125,20 @@ function getAdminByEmail_(email) {
       return admin;
     }
   }
+
+  // SUPERADMIN adalah identitas global aplikasi. Jika emailnya belum
+  // tercantum di ADMIN_SEKOLAH, tetap dikenali sebagai SUPERADMIN, tetapi
+  // konteks sekolah tetap harus tersedia jika modul sekolah akan digunakan.
+  if (isSuperAdminEmail_(normalizedEmail)) {
+    return {
+      EMAIL: normalizedEmail,
+      NAMA: "Pemilik Aplikasi",
+      ROLE: "SUPERADMIN",
+      STATUS: "ACTIVE",
+      NPSN: "",
+    };
+  }
+
   return null;
 }
 
@@ -163,7 +186,16 @@ function getSchoolUserByEmail_(spreadsheetId, email) {
   const normalizedEmail = normalizeEmail_(email);
   if (!spreadsheetId || !normalizedEmail) return null;
 
-  const ss = SpreadsheetApp.openById(spreadsheetId);
+  let ss;
+  try {
+    ss = SpreadsheetApp.openById(spreadsheetId);
+  } catch (e) {
+    throw new Error(
+      "Akun " + normalizedEmail + " belum dapat membaca Spreadsheet sekolah. " +
+      "Pastikan akun diberi akses ke database sekolah. Detail: " + e.message,
+    );
+  }
+
   const sheet = ss.getSheetByName(AUTH_CONFIG.USERS_SHEET);
   if (!sheet) return null;
 
@@ -233,7 +265,7 @@ function registerSchoolUserBinding_(context, user) {
   if (!email) throw new Error("Email pengguna wajib diisi.");
 
   const role = normalizeAuthRole_(user.ROLE || user.role);
-  if (!["GURU", "WALI_KELAS", "KARYAWAN"].includes(role)) {
+  if (!["GURU", "WALI_KELAS", "KARYAWAN", "SISWA"].includes(role)) {
     throw new Error("Role pengguna sekolah tidak diizinkan.");
   }
 
@@ -305,45 +337,73 @@ function getBoundSchoolUserContext_(email) {
     WARNA_SEKUNDER: binding.warnaSekunder,
   };
 
-  const user = {
-    USER_ID: binding.userId,
+  // Binding hanya menentukan SEKOLAH. Identitas user selalu dibaca ulang
+  // dari USERS sekolah agar perubahan nama/role/status langsung berlaku.
+  const user = getSchoolUserByEmail_(binding.spreadsheetId, normalizedEmail);
+  if (!user) {
+    throw new Error(
+      'Akun "' + normalizedEmail + '" tidak ditemukan pada USERS sekolah NPSN ' +
+      binding.npsn + ". Hubungi ADMIN_SEKOLAH.",
+    );
+  }
+
+  const role = normalizeAuthRole_(user.ROLE);
+  const status = String(user.STATUS || "").trim().toUpperCase();
+  const allowed = ["GURU", "WALI_KELAS", "KARYAWAN", "SISWA"];
+  if (!allowed.includes(role)) {
+    throw new Error(
+      "Role " + role + " pada USERS tidak valid untuk akun pengguna sekolah.",
+    );
+  }
+  if (status !== AUTH_CONFIG.ACTIVE_STATUS) {
+    throw new Error("Akun pengguna sekolah tidak aktif. Hubungi ADMIN_SEKOLAH.");
+  }
+
+  // Segarkan binding dari USERS agar binding lama tidak pernah menjadi sumber
+  // kebenaran untuk nama, NIP, role, atau status.
+  const refreshedBinding = {
+    USER_ID: user.USER_ID,
     EMAIL: normalizedEmail,
-    NIP: binding.nip,
-    NAMA: binding.nama,
-    ROLE: binding.role,
-    STATUS: binding.status,
+    NIP: user.NIP,
+    NAMA: user.NAMA,
+    ROLE: role,
+    STATUS: status,
   };
+  registerSchoolUserBinding_({ npsn: binding.npsn, school: school }, refreshedBinding);
 
   return buildSchoolContext_(user, school, normalizedEmail);
 }
 
 function getCurrentUserContext() {
   const email = getGoogleUserEmail_();
-  const cache = CacheService.getScriptCache();
-  const safe = email.replace(/[^a-zA-Z0-9]/g, "_");
-  const cacheKey = "USER_CONTEXT_" + AUTH_CONFIG.CONTEXT_CACHE_VERSION + "_" + safe;
-  const cached = cache.get(cacheKey);
-  if (cached) {
-    try {
-      return JSON.parse(cached);
-    } catch (e) {
-      cache.remove(cacheKey);
-    }
-  }
 
-  // PENTING: ADMIN_SEKOLAH harus selalu diprioritaskan di atas binding lokal.
-  // Sebelumnya akun yang pernah terdaftar sebagai GURU/WALI_KELAS dapat
-  // tetap terbaca sebagai guru walaupun kemudian dipromosikan menjadi ADMIN_SEKOLAH.
+  // Jangan cache context user. Role/Nama/Status pada USERS harus selalu
+  // menjadi sumber kebenaran sehingga perubahan ADMIN_SEKOLAH tidak tertahan
+  // oleh cache lama dan akun GURU seperti AYA tidak terbawa lagi.
   const admin = getAdminByEmail_(email);
+
   if (admin) {
     const status = String(admin.STATUS || "").trim().toUpperCase();
     if (status !== AUTH_CONFIG.ACTIVE_STATUS) {
       throw new Error("Akun administrator sekolah tidak aktif.");
     }
 
+    const isSuperAdmin = isSuperAdminEmail_(email);
+    const role = isSuperAdmin ? "SUPERADMIN" : normalizeAuthRole_(admin.ROLE);
+
+    if (!isSuperAdmin && role !== "ADMIN_SEKOLAH") {
+      // ADMIN_SEKOLAH tetap harus berasal dari MASTER. Jangan menerima role
+      // admin yang hanya ditulis di USERS sekolah.
+      throw new Error("Akun administrator tidak memiliki role ADMIN_SEKOLAH yang sah pada MASTER.");
+    }
+
     const npsn = normalizeNpsn_(admin.NPSN);
     if (!npsn) {
-      throw new Error("Akun administrator belum memiliki NPSN sekolah.");
+      throw new Error(
+        isSuperAdmin
+          ? "SUPERADMIN terautentikasi secara global. Untuk membuka modul sekolah, akun pemilik harus memiliki NPSN pada ADMIN_SEKOLAH atau context sekolah yang sah."
+          : "Akun administrator belum memiliki NPSN sekolah.",
+      );
     }
 
     const school = getSchoolByNpsnAuth_(npsn);
@@ -358,17 +418,16 @@ function getCurrentUserContext() {
       throw new Error("Sekolah Anda tidak aktif pada SIM SATRIA.");
     }
 
-    const context = buildSchoolContext_(admin, school, email);
-    cache.put(cacheKey, JSON.stringify(context), AUTH_CONFIG.CACHE_SECONDS);
-    return context;
+    const adminUser = Object.assign({}, admin, { ROLE: role });
+    // SUPERADMIN tetap boleh menggunakan context sekolah yang tercantum pada
+    // ADMIN_SEKOLAH, tetapi role globalnya tetap SUPERADMIN.
+    return buildSchoolContext_(adminUser, school, email);
   }
 
-  // Jika bukan ADMIN_SEKOLAH, barulah gunakan binding lokal sekolah.
+  // User sekolah sama sekali tidak perlu membuka MASTER. Binding lokal hanya
+  // menyimpan locator sekolah, sedangkan USERS sekolah menjadi sumber data user.
   const boundUser = getBoundSchoolUserContext_(email);
-  if (boundUser) {
-    cache.put(cacheKey, JSON.stringify(boundUser), AUTH_CONFIG.CACHE_SECONDS);
-    return boundUser;
-  }
+  if (boundUser) return boundUser;
 
   throw new Error(
     'Akun Google "' +
@@ -424,7 +483,7 @@ function bindMySchool(npsn) {
   const user = getSchoolUserByEmail_(spreadsheetId, email);
   if (!user) throw new Error("Akun belum terdaftar pada USERS sekolah.");
 
-  const context = buildSchoolContext_(admin, school, email);
+  const context = buildSchoolContext_(Object.assign({}, admin, { ROLE: isSuperAdminEmail_(email) ? "SUPERADMIN" : "ADMIN_SEKOLAH" }), school, email);
   registerSchoolUserBinding_(context, user);
   clearMyAuthCache();
 
@@ -472,10 +531,12 @@ function clearUserContextCache_(email) {
   const safe = normalizedEmail.replace(/[^a-zA-Z0-9]/g, "_");
   const cache = CacheService.getScriptCache();
   cache.remove("USER_CONTEXT_" + AUTH_CONFIG.CONTEXT_CACHE_VERSION + "_" + safe);
+  cache.remove("USER_CONTEXT_V6_" + safe);
   cache.remove("USER_CONTEXT_V5_" + safe);
   cache.remove("USER_CONTEXT_V4_" + safe);
   cache.remove("LOCAL_USER_" + safe);
   cache.remove("ADMIN_" + AUTH_CONFIG.ADMIN_CACHE_VERSION + "_" + safe);
+  cache.remove("ADMIN_V2_" + safe);
   cache.remove("ADMIN_" + safe);
 }
 
@@ -496,12 +557,13 @@ function refreshMySchoolContext() {
     sekolah: context.school.namaSekolah,
     spreadsheetId: context.school.spreadsheetId,
     driveFolderId: context.school.driveFolderId,
+    role: context.role,
   };
 }
 
 function syncSchoolUserBinding(email) {
   const context = getCurrentUserContext();
-  if (normalizeAuthRole_(context.role) !== "ADMIN_SEKOLAH") {
+  if (!["ADMIN_SEKOLAH", "SUPERADMIN"].includes(normalizeAuthRole_(context.role))) {
     throw new Error("Hanya ADMIN_SEKOLAH yang dapat melakukan sinkronisasi binding pengguna.");
   }
 

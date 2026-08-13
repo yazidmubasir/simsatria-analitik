@@ -7,13 +7,13 @@
  */
 const USER_MANAGEMENT_CONFIG = {
   SHEET: "USERS",
-  ALLOWED_ROLES: ["GURU", "WALI_KELAS", "KARYAWAN"],
+  ALLOWED_ROLES: ["GURU", "WALI_KELAS", "KARYAWAN", "SISWA"],
   ACTIVE_STATUS: "ACTIVE",
 };
 
 function requireUserManager_() {
   const context = getCurrentUserContext();
-  if (normalizeRole_(context.role) !== "ADMIN_SEKOLAH") {
+  if (!["ADMIN_SEKOLAH", "SUPERADMIN"].includes(normalizeRole_(context.role))) {
     throw new Error("Menu Manajemen Pengguna hanya dapat digunakan oleh ADMIN_SEKOLAH.");
   }
   return context;
@@ -75,7 +75,7 @@ function saveSchoolUser(user) {
   const role = normalizeRole_(user.role || "GURU");
   const status = normalizeRole_(user.status || "ACTIVE");
 
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Email guru tidak valid.");
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Email pengguna tidak valid.");
   if (!nama) throw new Error("Nama pengguna wajib diisi.");
   if (!USER_MANAGEMENT_CONFIG.ALLOWED_ROLES.includes(role)) throw new Error("Role tidak diizinkan untuk dikelola oleh ADMIN_SEKOLAH.");
   if (!["ACTIVE", "INACTIVE"].includes(status)) throw new Error("Status pengguna tidak valid.");
@@ -112,14 +112,19 @@ function saveSchoolUser(user) {
   const userRecord = { USER_ID: userId, EMAIL: email, NIP: nip, NAMA: nama, ROLE: role, STATUS: status };
   const binding = registerSchoolUserBinding_(context, userRecord);
 
-  if (status === "ACTIVE") grantSchoolSpreadsheetEditor_(context.school.spreadsheetId, email);
-  else revokeSchoolSpreadsheetAccess_(context.school.spreadsheetId, email);
+  // GURU/WALI_KELAS/KARYAWAN memerlukan akses database untuk Web App.
+  // SISWA tidak diberi Editor spreadsheet hanya karena akun dibuat di USERS.
+  if (status === "ACTIVE" && role !== "SISWA") grantSchoolSpreadsheetEditor_(context.school.spreadsheetId, email);
+  else if (role !== "SISWA") revokeSchoolSpreadsheetAccess_(context.school.spreadsheetId, email);
 
   // Sinkronisasi Drive sekolah untuk GURU/WALI_KELAS.
   // Kegagalan Drive tidak membatalkan transaksi USERS yang sudah berhasil.
-  const drivePermission = syncTeacherSchoolDrivePermission_(context, email, role, status);
+  let drivePermission = { success: true, skipped: true, reason: "ROLE_NOT_TEACHER" };
+  if (["GURU", "WALI_KELAS"].indexOf(role) >= 0) {
+    drivePermission = syncTeacherSchoolDrivePermission_(context, email, role, status);
+  }
 
-  clearUserContextCache_(email);
+  clearUserContextCache(email);
 
   return {
     success: true,
@@ -152,7 +157,7 @@ function deleteSchoolUser(email) {
   for (let i = 1; i < values.length; i++) {
     if (normalizeEmail_(values[i][emailIndex]) === email) {
       const role = normalizeRole_(values[i][roleIndex]);
-      if (!USER_MANAGEMENT_CONFIG.ALLOWED_ROLES.includes(role)) throw new Error("Hanya pengguna GURU/WALI_KELAS/KARYAWAN yang dapat dihapus melalui menu ini.");
+      if (!USER_MANAGEMENT_CONFIG.ALLOWED_ROLES.includes(role)) throw new Error("Hanya pengguna sekolah yang dapat dihapus melalui menu ini.");
       sheet.deleteRow(i + 1);
       removeSchoolUserBinding_(email);
       revokeSchoolSpreadsheetAccess_(context.school.spreadsheetId, email);
@@ -163,7 +168,7 @@ function deleteSchoolUser(email) {
         drivePermission = revokeSchoolDriveEditor_(email);
       }
 
-      clearUserContextCache_(email);
+      clearUserContextCache(email);
       return {
         success: true,
         email: email,
@@ -204,12 +209,14 @@ function setSchoolUserStatus(email, status) {
         STATUS: status,
       };
       registerSchoolUserBinding_(context, updatedUser);
-      if (status === "ACTIVE") grantSchoolSpreadsheetEditor_(context.school.spreadsheetId, email);
-      else revokeSchoolSpreadsheetAccess_(context.school.spreadsheetId, email);
+      if (status === "ACTIVE" && role !== "SISWA") grantSchoolSpreadsheetEditor_(context.school.spreadsheetId, email);
+      else if (role !== "SISWA") revokeSchoolSpreadsheetAccess_(context.school.spreadsheetId, email);
 
-      const drivePermission = syncTeacherSchoolDrivePermission_(context, email, role, status);
+      const drivePermission = ["GURU", "WALI_KELAS"].indexOf(role) >= 0
+        ? syncTeacherSchoolDrivePermission_(context, email, role, status)
+        : { success: true, skipped: true, reason: "ROLE_NOT_TEACHER" };
 
-      clearUserContextCache_(email);
+      clearUserContextCache(email);
       return {
         success: true,
         email: email,
@@ -247,23 +254,22 @@ function revokeSchoolSpreadsheetAccess_(spreadsheetId, email) {
   catch (e) { console.warn("[USER] Gagal mencabut akses spreadsheet " + email + ": " + e.message); }
 }
 
-function clearUserContextCache_(email) {
-  const safe = normalizeEmail_(email).replace(/[^a-zA-Z0-9]/g, "_");
-  const cache = CacheService.getScriptCache();
-  cache.remove("USER_CONTEXT_V5_" + safe);
-  cache.remove("USER_CONTEXT_V4_" + safe);
-  cache.remove("LOCAL_USER_" + safe);
+/**
+ * Wrapper dengan nama berbeda agar tidak menimpa clearUserContextCache_()
+ * milik Auth.js. Sebelumnya file ini mendefinisikan fungsi yang sama dan
+ * menghilangkan invalidasi cache V6/V7.
+ */
+function clearUserContextCache(email) {
+  if (typeof clearUserContextCache_ === "function") {
+    clearUserContextCache_(email);
+  }
 }
 
 /**
  * BOOTSTRAP KHUSUS GURU
  *
  * Jalankan SATU KALI dari Apps Script sebagai ADMIN_SEKOLAH yang sedang
- * terhubung dengan sekolahnya. Fungsi ini sengaja server-side dan tidak
- * dipanggil dari frontend.
- *
- * Tujuan: memastikan masayid09@gmail.com benar-benar masuk USERS,
- * mendapat binding sekolah, dan mendapat akses ke spreadsheet sekolah.
+ * terhubung dengan sekolahnya.
  */
 function bootstrapTeacherMasayid09() {
   const context = requireUserManager_();
@@ -318,7 +324,7 @@ function bootstrapTeacherMasayid09() {
 
   const drivePermission = syncTeacherSchoolDrivePermission_(context, email, "GURU", "ACTIVE");
 
-  clearUserContextCache_(email);
+  clearUserContextCache(email);
 
   return {
     success: accessGranted,

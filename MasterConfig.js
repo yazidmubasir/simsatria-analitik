@@ -2,12 +2,13 @@
  * ============================================================
  * SIM SATRIA - MASTER CONFIGURATION
  * ============================================================
- * MASTER_SPREADSHEET_ID tetap menjadi sumber utama.
+ * MASTER hanya menyimpan data GLOBAL:
+ *   - SCHOOLS
+ *   - ADMIN_SEKOLAH
  *
- * Untuk Web App USER_ACCESSING, akun sekolah tidak harus memiliki
- * izin membaca MASTER. Admin utama menjalankan
- * syncMasterAuthRegistry() untuk menyalin registry autentikasi
- * (ADMIN_SEKOLAH + SCHOOLS) ke Script Properties.
+ * GURU/WALI_KELAS/KARYAWAN/SISWA TIDAK BOLEH dimasukkan ke MASTER.
+ * Semua pengguna sekolah tersebut dikelola melalui menu Manajemen
+ * Pengguna pada Spreadsheet sekolah masing-masing (sheet USERS).
  * ============================================================
  */
 
@@ -57,13 +58,107 @@ function setupMasterSpreadsheetId() {
 }
 
 /**
+ * Validasi keras struktur ADMIN_SEKOLAH pada MASTER.
+ * MASTER hanya boleh berisi administrator sekolah.
+ */
+function validateMasterAdminSheet_(sheet) {
+  if (!sheet) throw new Error("Sheet ADMIN_SEKOLAH tidak ditemukan pada MASTER.");
+
+  const values = sheet.getDataRange().getValues();
+  if (!values || values.length === 0) {
+    throw new Error("Sheet ADMIN_SEKOLAH masih kosong.");
+  }
+
+  const headers = values[0].map(function (h) {
+    return String(h || "").trim().toUpperCase();
+  });
+
+  const requiredHeaders = [
+    "USER_ID",
+    "EMAIL",
+    "NIP",
+    "NAMA",
+    "NPSN",
+    "ROLE",
+    "STATUS",
+  ];
+
+  requiredHeaders.forEach(function (header) {
+    if (headers.indexOf(header) < 0) {
+      throw new Error('Kolom "' + header + '" wajib ada pada sheet ADMIN_SEKOLAH.');
+    }
+  });
+
+  const index = {};
+  headers.forEach(function (header, i) {
+    index[header] = i;
+  });
+
+  const seenEmails = {};
+  const seenNpsn = {};
+  let adminCount = 0;
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const email = normalizeEmail_(row[index.EMAIL]);
+    const npsn = normalizeNpsn_(row[index.NPSN]);
+    const role = normalizeAuthRole_(row[index.ROLE]);
+    const status = String(row[index.STATUS] || "").trim().toUpperCase();
+
+    // Baris kosong setelah data terakhir diperbolehkan.
+    if (!email && !npsn && !role && !status) continue;
+
+    if (!email) throw new Error("ADMIN_SEKOLAH baris " + (i + 1) + ": EMAIL wajib diisi.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error("ADMIN_SEKOLAH baris " + (i + 1) + ": EMAIL tidak valid.");
+    }
+    if (!npsn) throw new Error("ADMIN_SEKOLAH baris " + (i + 1) + ": NPSN wajib diisi.");
+
+    // MASTER tidak boleh menjadi database guru.
+    if (role !== "ADMIN_SEKOLAH") {
+      throw new Error(
+        "ADMIN_SEKOLAH baris " +
+          (i + 1) +
+          ": ROLE harus ADMIN_SEKOLAH. GURU/WALI_KELAS/KARYAWAN/SISWA harus dikelola melalui USERS sekolah masing-masing.",
+      );
+    }
+
+    if (!["ACTIVE", "INACTIVE"].includes(status)) {
+      throw new Error(
+        "ADMIN_SEKOLAH baris " + (i + 1) + ": STATUS harus ACTIVE atau INACTIVE.",
+      );
+    }
+
+    if (seenEmails[email]) throw new Error("Email ADMIN_SEKOLAH duplikat: " + email + ".");
+    if (seenNpsn[npsn]) throw new Error("NPSN ADMIN_SEKOLAH duplikat: " + npsn + ".");
+
+    seenEmails[email] = true;
+    seenNpsn[npsn] = true;
+    adminCount++;
+  }
+
+  if (adminCount === 0) {
+    throw new Error("Belum ada ADMIN_SEKOLAH aktif/terdaftar pada MASTER.");
+  }
+
+  return {
+    success: true,
+    adminCount: adminCount,
+    headers: requiredHeaders,
+  };
+}
+
+/**
  * Sinkronkan registry MASTER ke Script Properties.
- *
- * WAJIB dijalankan oleh akun pemilik/admin utama yang mempunyai akses
- * ke Spreadsheet MASTER. Setelah sinkronisasi, akun ADMIN_SEKOLAH
- * seperti masayid11 tidak perlu membuka MASTER lagi.
+ * Registry yang disalin hanya ADMIN_SEKOLAH dan SCHOOLS.
+ * GURU/WALI_KELAS/KARYAWAN/SISWA tidak pernah menjadi registry MASTER.
  */
 function syncMasterAuthRegistry() {
+  const callerEmail = getGoogleUserEmail_();
+  if (!isSuperAdminEmail_(callerEmail)) {
+    throw new Error("Hanya SUPERADMIN yang boleh melakukan sinkronisasi MASTER.");
+  }
+
   const masterId = getMasterSpreadsheetId_();
   const ss = SpreadsheetApp.openById(masterId);
   const props = PropertiesService.getScriptProperties();
@@ -71,13 +166,10 @@ function syncMasterAuthRegistry() {
   const adminSheet = ss.getSheetByName("ADMIN_SEKOLAH");
   const schoolSheet = ss.getSheetByName("SCHOOLS") || ss.getSheetByName("schools");
 
-  if (!adminSheet) {
-    throw new Error("Sheet ADMIN_SEKOLAH tidak ditemukan pada MASTER.");
-  }
-  if (!schoolSheet) {
-    throw new Error("Sheet SCHOOLS tidak ditemukan pada MASTER.");
-  }
+  if (!adminSheet) throw new Error("Sheet ADMIN_SEKOLAH tidak ditemukan pada MASTER.");
+  if (!schoolSheet) throw new Error("Sheet SCHOOLS tidak ditemukan pada MASTER.");
 
+  const adminValidation = validateMasterAdminSheet_(adminSheet);
   const admins = sheetValuesToObjects_(adminSheet);
   const schools = sheetValuesToObjects_(schoolSheet);
 
@@ -99,6 +191,14 @@ function syncMasterAuthRegistry() {
   admins.forEach(function (admin) {
     const email = normalizeEmail_(admin.EMAIL);
     if (!email) return;
+
+    const role = normalizeAuthRole_(admin.ROLE);
+    if (role !== "ADMIN_SEKOLAH") {
+      throw new Error(
+        "Registry MASTER menolak " + email + ": hanya ROLE ADMIN_SEKOLAH yang boleh berada di ADMIN_SEKOLAH.",
+      );
+    }
+
     updates[
       MASTER_AUTH_REGISTRY.ADMIN_PREFIX + registrySafeKey_(email)
     ] = JSON.stringify(admin);
@@ -119,7 +219,7 @@ function syncMasterAuthRegistry() {
     masterSpreadsheetId: masterId,
     adminCount: adminCount,
     schoolCount: schoolCount,
-    version: 1,
+    version: 2,
   });
 
   props.setProperties(updates, false);
@@ -128,9 +228,10 @@ function syncMasterAuthRegistry() {
     success: true,
     adminCount: adminCount,
     schoolCount: schoolCount,
+    validatedAdminCount: adminValidation.adminCount,
     syncedAt: updates[MASTER_AUTH_REGISTRY.META_KEY],
     message:
-      "Registry autentikasi MASTER berhasil disinkronkan ke Script Properties.",
+      "Registry MASTER berhasil disinkronkan. MASTER hanya memuat ADMIN_SEKOLAH dan SCHOOLS; pengguna GURU/WALI_KELAS/KARYAWAN/SISWA tetap dikelola pada USERS sekolah masing-masing.",
   };
 }
 

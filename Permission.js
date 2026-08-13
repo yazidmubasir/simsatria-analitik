@@ -59,6 +59,14 @@ const ROLE_PERMISSIONS = {
     "MANAGE_KEAMANAN",
     "MANAGE_KERJA",
   ],
+
+  // SISWA sudah menjadi identitas autentikasi resmi, tetapi tidak diberi
+  // akses pengelolaan database sekolah.
+  SISWA: [
+    "VIEW_DASHBOARD",
+    "VIEW_PRESENSI",
+    "VIEW_MONITORING",
+  ],
 };
 
 function normalizePermission_(permission) {
@@ -115,6 +123,8 @@ function getMyPermissions() {
   return {
     success: true,
     role: context.role,
+    npsn: context.npsn,
+    sekolah: context.school.namaSekolah,
     permissions: getRolePermissions_(context.role),
   };
 }
@@ -126,6 +136,7 @@ function checkPermission(permission) {
     return {
       success: true,
       role: context.role,
+      npsn: context.npsn,
       permission: required,
       allowed: hasPermission(required, context.role),
     };
@@ -157,14 +168,7 @@ function requireSchoolAdmin() {
 /**
  * SINKRONISASI PENGGUNA SEKOLAH
  *
- * Ditempatkan di Permission.js agar tidak menambah file khusus sinkronisasi.
- * Hanya ADMIN_SEKOLAH yang dapat menjalankannya.
- *
- * Input:
- *   email@gmail.com
- *   email2@gmail.com|Nama Guru|NIP
- *
- * Pemisah yang diterima: baris baru, koma, atau titik koma.
+ * Hanya ADMIN_SEKOLAH/SUPERADMIN yang dapat menjalankannya.
  */
 function normalizeSchoolUserList_(input) {
   const tokens = String(input || "")
@@ -268,8 +272,8 @@ function syncAllSchoolUsers(emailList) {
       const userRecord = { USER_ID: userId, EMAIL: email, NIP: nip, NAMA: nama, ROLE: role, STATUS: status };
       registerSchoolUserBinding_(context, userRecord);
 
-      if (status === "ACTIVE") grantSchoolSpreadsheetEditor_(context.school.spreadsheetId, email);
-      else revokeSchoolSpreadsheetAccess_(context.school.spreadsheetId, email);
+      if (status === "ACTIVE" && role !== "SISWA") grantSchoolSpreadsheetEditor_(context.school.spreadsheetId, email);
+      else if (role !== "SISWA") revokeSchoolSpreadsheetAccess_(context.school.spreadsheetId, email);
 
       clearUserContextCache_(email);
 
