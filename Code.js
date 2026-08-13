@@ -36,6 +36,12 @@ function ensureSheetHeaders_(ss, name, headers) {
 }
 
 function getLoginInfo() {
+  // Selalu bersihkan cache autentikasi saat membaca identitas login.
+  // Ini penting ketika akun baru dipromosikan menjadi ADMIN_SEKOLAH
+  // setelah sebelumnya tersimpan sebagai GURU/WALI_KELAS/KARYAWAN.
+  const email = getGoogleUserEmail_();
+  clearUserContextCache_(email);
+
   const context = getCurrentUserContext();
   return { success: true, user: { userId: context.userId, email: context.email, nip: context.nip, nama: context.nama, role: context.role }, school: { npsn: context.npsn, namaSekolah: context.school.namaSekolah, alamat: context.school.alamat, logoUrl: context.school.logoUrl, tagline: context.school.tagline, warnaUtama: context.school.warnaUtama, warnaSekunder: context.school.warnaSekunder } };
 }
