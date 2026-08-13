@@ -1,40 +1,30 @@
 /**
  * SCHOOL REGISTRY
  *
- * MASTER dibaca oleh AKUN EKSEKUSI Web App (pemilik aplikasi).
- * Identitas pengguna tetap berasal dari Session.getActiveUser().getEmail().
+ * DEPLOYMENT: Execute as = User accessing the web app.
  *
- * PENTING:
- * - Web App wajib deployment: Execute as = Me.
- * - User accessing the web app tetap dipakai untuk identitas login.
- * - Guru/Wali/Karyawan/Siswa TIDAK perlu Viewer ke Spreadsheet MASTER.
- * - MASTER hanya menjadi sumber kebenaran ADMIN_SEKOLAH dan SCHOOLS.
- * - Modul bisnis membaca database sekolah melalui School Context.
+ * MASTER ACCESS POLICY:
+ * - ADMIN_SEKOLAH / SUPERADMIN may read MASTER because their Google accounts
+ *   are explicitly granted access to MASTER.
+ * - GURU / WALI_KELAS / KARYAWAN / SISWA must NEVER read MASTER directly.
+ * - Non-admin users receive their school Spreadsheet ID through the binding
+ *   created by ADMIN_SEKOLAH and then access only the school database.
  *
- * Tidak ada fallback registry/proxy yang menjadi sumber kebenaran login.
- * syncMasterAuthRegistry() hanya maintenance/diagnostik dan tidak diperlukan
- * agar ADMIN_SEKOLAH dapat login.
+ * Session.getActiveUser() remains the identity source for every caller.
  */
 function getMasterSpreadsheet_() {
   const id = getMasterSpreadsheetId_();
-  if (!id) {
-    throw new Error("MASTER_SPREADSHEET_ID belum dikonfigurasi.");
-  }
-
-  // Jangan membuka MASTER sebagai akun pengguna.
-  // Pada deployment "Execute as: Me", pemanggilan ini berjalan sebagai
-  // pemilik/akun eksekusi sehingga Guru tidak perlu diberi akses MASTER.
+  if (!id) throw new Error("MASTER_SPREADSHEET_ID belum dikonfigurasi.");
   try {
     return SpreadsheetApp.openById(id);
   } catch (e) {
     throw new Error(
-      "Spreadsheet MASTER tidak dapat dibuka oleh akun eksekusi aplikasi. " +
-      "Pastikan deployment Web App menggunakan Execute as: Me dan akun pemilik aplikasi memiliki akses ke MASTER. Detail: " +
-      e.message,
+      "Akun administrator tidak dapat membaca Spreadsheet MASTER. Pastikan akun ADMIN_SEKOLAH memiliki akses minimal Viewer ke MASTER. Detail: " + e.message,
     );
   }
 }
 
+/* These helpers are ADMIN/SUPERADMIN-only by architecture. */
 function getMasterAdminSheet_() {
   const sheet = getMasterSpreadsheet_().getSheetByName("ADMIN_SEKOLAH");
   if (!sheet) throw new Error("Sheet ADMIN_SEKOLAH tidak ditemukan pada MASTER.");
@@ -57,6 +47,6 @@ function getSchoolByNpsn(npsn) {
 function getSchoolByNpsnDirect_(npsn) {
   const target = normalizeNpsn_(npsn);
   if (!target) return null;
-  const rows = sheetValuesToObjects_(getMasterSchoolsSheet_());
+  const rows = sheetRowsAsObjects_(getMasterSchoolsSheet_());
   return rows.find(row => normalizeNpsn_(row.NPSN) === target) || null;
 }
